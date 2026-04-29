@@ -9,85 +9,107 @@ import 'package:image/image.dart' as img;
 class CropNormalizeArgs {
   final int width;
   final int height;
-  final Uint8List yBytes;
-  final Uint8List uBytes;
-  final Uint8List vBytes;
-  final int yRowStride;
-  final int uvRowStride;
-  final int uvPixelStride;
+  final Uint8List nv21Bytes; // full NV21 buffer (Y plane + interleaved VU)
   final Rect boundingBox;
   final int inputSize;
 
   CropNormalizeArgs({
     required this.width,
     required this.height,
-    required this.yBytes,
-    required this.uBytes,
-    required this.vBytes,
-    required this.yRowStride,
-    required this.uvRowStride,
-    required this.uvPixelStride,
+    required this.nv21Bytes,
     required this.boundingBox,
     required this.inputSize,
   });
 }
 
 class ImageConverter {
-  /// Builds args to pass to the isolate from a CameraImage + Face
+  /// Builds args from a CameraImage (NV21 = 1 plane, or YUV420 = 3 planes)
   static CropNormalizeArgs buildArgs(CameraImage image, Face face, int inputSize) {
+    final Uint8List nv21;
+
+    if (image.planes.length == 1) {
+      // NV21: single plane with Y followed by interleaved VU
+      nv21 = image.planes[0].bytes;
+    } else {
+      // YUV420 (3 planes): manually pack into NV21 layout
+      nv21 = _yuv420ToNv21(image);
+    }
+
     return CropNormalizeArgs(
       width: image.width,
       height: image.height,
-      yBytes: image.planes[0].bytes,
-      uBytes: image.planes[1].bytes,
-      vBytes: image.planes[2].bytes,
-      yRowStride: image.planes[0].bytesPerRow,
-      uvRowStride: image.planes[1].bytesPerRow,
-      uvPixelStride: image.planes[1].bytesPerPixel ?? 1,
+      nv21Bytes: nv21,
       boundingBox: face.boundingBox,
       inputSize: inputSize,
     );
   }
 
+  /// Pack YUV420 3-plane into NV21 single buffer
+  static Uint8List _yuv420ToNv21(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+
+    final nv21 = Uint8List(width * height + (width * height ~/ 2));
+
+    // Copy Y plane row by row (may have padding)
+    int dstIdx = 0;
+    for (int row = 0; row < height; row++) {
+      nv21.setRange(
+        dstIdx,
+        dstIdx + width,
+        yPlane.bytes,
+        row * yPlane.bytesPerRow,
+      );
+      dstIdx += width;
+    }
+
+    // Interleave V and U into NV21 (VU order)
+    final int uvHeight = height ~/ 2;
+    final int uvWidth = width ~/ 2;
+    final int uvPixelStride = vPlane.bytesPerPixel ?? 1;
+
+    for (int row = 0; row < uvHeight; row++) {
+      for (int col = 0; col < uvWidth; col++) {
+        final int uvIdx = row * vPlane.bytesPerRow + col * uvPixelStride;
+        nv21[dstIdx++] = vPlane.bytes[uvIdx];
+        nv21[dstIdx++] = uPlane.bytes[uvIdx];
+      }
+    }
+
+    return nv21;
+  }
+
   /// Top-level function — safe to run in compute() isolate
   static List<double> cropAndNormalizeIsolate(CropNormalizeArgs args) {
-    final fullImage = _convertYUV420(
-      args.width,
-      args.height,
-      args.yBytes,
-      args.uBytes,
-      args.vBytes,
-      args.yRowStride,
-      args.uvRowStride,
-      args.uvPixelStride,
-    );
+    final fullImage = _nv21ToRgb(args.width, args.height, args.nv21Bytes);
     return _cropAndNormalize(fullImage, args.boundingBox, args.inputSize);
   }
 
-  static img.Image _convertYUV420(
-    int width,
-    int height,
-    Uint8List yBytes,
-    Uint8List uBytes,
-    Uint8List vBytes,
-    int yRowStride,
-    int uvRowStride,
-    int uvPixelStride,
-  ) {
-    // Build a flat RGB byte buffer — much faster than setPixelRgb per pixel
+  /// Convert NV21 buffer to RGB image
+  static img.Image _nv21ToRgb(int width, int height, Uint8List nv21) {
     final rgb = Uint8List(width * height * 3);
+    final int frameSize = width * height;
     int idx = 0;
 
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        final int yVal = yBytes[y * yRowStride + x];
-        final int uvIdx = (y ~/ 2) * uvRowStride + (x ~/ 2) * uvPixelStride;
-        final int uVal = uBytes[uvIdx];
-        final int vVal = vBytes[uvIdx];
+    for (int j = 0; j < height; j++) {
+      for (int i = 0; i < width; i++) {
+        final int yVal = nv21[j * width + i] & 0xFF;
 
-        rgb[idx++] = (yVal + 1.402 * (vVal - 128)).clamp(0, 255).toInt();
-        rgb[idx++] = (yVal - 0.344136 * (uVal - 128) - 0.714136 * (vVal - 128)).clamp(0, 255).toInt();
-        rgb[idx++] = (yVal + 1.772 * (uVal - 128)).clamp(0, 255).toInt();
+        // NV21: VU interleaved starting at frameSize
+        final int uvOffset = frameSize + (j ~/ 2) * width + (i & ~1);
+        final int vVal = nv21[uvOffset] & 0xFF;
+        final int uVal = nv21[uvOffset + 1] & 0xFF;
+
+        final int r = (yVal + 1.402 * (vVal - 128)).clamp(0, 255).toInt();
+        final int g = (yVal - 0.344136 * (uVal - 128) - 0.714136 * (vVal - 128)).clamp(0, 255).toInt();
+        final int b = (yVal + 1.772 * (uVal - 128)).clamp(0, 255).toInt();
+
+        rgb[idx++] = r;
+        rgb[idx++] = g;
+        rgb[idx++] = b;
       }
     }
 

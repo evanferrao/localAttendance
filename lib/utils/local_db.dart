@@ -4,25 +4,36 @@ import 'package:hive_flutter/hive_flutter.dart';
 class HiveBoxes {
   HiveBoxes._();
 
-  static const userDetails = "user_details";
+  static const userBox = "user_box";
 
-  static Box userDetailsBox() => Hive.box<Map>(userDetails);
+  static Box get _box => Hive.box(userBox);
 
   static Future<void> initialize() async {
-    await Hive.openBox<Map>(userDetails);
+    await Hive.openBox(userBox);
   }
 
   static Future<void> clearAllBox() async {
-    await userDetailsBox().clear();
+    await _box.clear();
   }
 }
 
 class LocalDB {
-  static User getUser() => User.fromJson(HiveBoxes.userDetailsBox().toMap());
+  static Box get _box => HiveBoxes._box;
 
-  static String getUserName() => HiveBoxes.userDetailsBox().toMap()[User.nameKey];
+  static bool get hasUser {
+    final name = _box.get(User.nameKey);
+    return name != null && (name as String).isNotEmpty;
+  }
 
-  static String getUserArray() => HiveBoxes.userDetailsBox().toMap()[User.arrayKey];
+  static User getUser() {
+    return User(
+      name: _box.get(User.nameKey) as String?,
+      array: _box.get(User.arrayKey) != null ? List.from(_box.get(User.arrayKey)) : null,
+    );
+  }
 
-  static setUserDetails(User user) => HiveBoxes.userDetailsBox().putAll(user.toJson());
+  static Future<void> setUserDetails(User user) async {
+    await _box.put(User.nameKey, user.name);
+    await _box.put(User.arrayKey, user.array);
+  }
 }

@@ -12,14 +12,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
 
-  bool get _hasRegisteredUser {
-    try {
-      final user = LocalDB.getUser();
-      return user.name != null && user.name!.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
+  bool get _hasRegisteredUser => LocalDB.hasUser;
 
   void _goToRegister() {
     final name = _nameController.text.trim();

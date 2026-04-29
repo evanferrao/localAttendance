@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:face_att/models/user.dart';
@@ -16,7 +16,6 @@ class MLService {
   Interpreter? _interpreter;
   bool _isInitialized = false;
   List<double>? predictedArray;
-  Delegate? _delegate;
 
   Future<User?> predict(
     CameraImage cameraImage,
@@ -35,16 +34,20 @@ class MLService {
     final args = ImageConverter.buildArgs(cameraImage, face, inputSize);
     final flatInput = await compute(ImageConverter.cropAndNormalizeIsolate, args);
 
-    // Build properly typed 4D input [1][112][112][3]
-    final input = _buildInput4D(flatInput);
-    final output = {0: List.generate(1, (_) => List.filled(192, 0.0))};
+    // Pass input as Float32List — bypasses nested list shape checks entirely
+    final inputBytes = Float32List.fromList(flatInput);
 
-    _interpreter!.runForMultipleInputs([input], output);
+    // Get embedding size from actual tensor shape
+    final outTensor = _interpreter!.getOutputTensor(0);
+    final embeddingSize = outTensor.shape.reduce((a, b) => a * b); // flatten all dims
+    final outputBytes = Float32List(embeddingSize);
 
-    predictedArray = List<double>.from(output[0]![0]);
+    _interpreter!.run(inputBytes.buffer, outputBytes.buffer);
+
+    predictedArray = outputBytes.toList();
 
     if (!loginUser) {
-      LocalDB.setUserDetails(User(name: name, array: predictedArray));
+      await LocalDB.setUserDetails(User(name: name, array: predictedArray));
       return null;
     } else {
       final user = LocalDB.getUser();
@@ -64,45 +67,20 @@ class MLService {
 
   Future<void> initializeInterpreter() async {
     try {
-      final options = InterpreterOptions();
-
-      if (Platform.isAndroid) {
-        try {
-          _delegate = GpuDelegateV2(
-            options: GpuDelegateOptionsV2(isPrecisionLossAllowed: true),
-          );
-          options.addDelegate(_delegate!);
-          debugPrint("✅ Android GPU Delegate enabled");
-        } catch (e) {
-          debugPrint("❌ Android GPU failed, fallback to CPU: $e");
-        }
-      } else if (Platform.isIOS) {
-        try {
-          _delegate = GpuDelegate(
-            options: GpuDelegateOptions(allowPrecisionLoss: true),
-          );
-          options.addDelegate(_delegate!);
-          debugPrint("✅ iOS GPU Delegate enabled");
-        } catch (e) {
-          debugPrint("❌ iOS GPU failed, fallback to CPU: $e");
-        }
-      }
+      final options = InterpreterOptions()..threads = 4;
 
       _interpreter = await Interpreter.fromAsset(
         'assets/mobilefacenet.tflite',
         options: options,
       );
       _isInitialized = true;
-      debugPrint("✅ Interpreter initialized");
+      // Log actual tensor shapes so we can verify
+      final inShape = _interpreter!.getInputTensor(0).shape;
+      final outShape = _interpreter!.getOutputTensor(0).shape;
+      debugPrint("✅ Interpreter initialized — input: $inShape  output: $outShape");
     } catch (e) {
       debugPrint("❌ Interpreter initialization error: $e");
     }
-  }
-
-  /// Converts flat [H*W*C] list into [1][H][W][C] nested list for tflite
-  List _buildInput4D(List<double> flat) {
-    int idx = 0;
-    return [List.generate(inputSize, (_) => List.generate(inputSize, (_) => List.generate(3, (_) => flat[idx++])))];
   }
 
   double euclideanDistance(List a, List b) {
@@ -117,6 +95,5 @@ class MLService {
 
   void dispose() {
     if (_isInitialized) _interpreter?.close();
-    _delegate?.delete();
   }
 }
