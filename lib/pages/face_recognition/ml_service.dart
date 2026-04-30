@@ -21,7 +21,7 @@ class MLService {
     CameraImage cameraImage,
     Face face,
     bool loginUser,
-    String name,
+    User registerUser,
   ) async {
     await _ensureInitialized();
 
@@ -47,8 +47,9 @@ class MLService {
     predictedArray = outputBytes.toList();
 
     if (!loginUser) {
-      await LocalDB.setUserDetails(User(name: name, array: predictedArray));
-      return null;
+      registerUser.array = predictedArray;
+      await LocalDB.setUserDetails(registerUser);
+      return registerUser;
     } else {
       final user = LocalDB.getUser();
       if (user.array == null || user.array!.isEmpty) return null;

@@ -10,16 +10,17 @@ import 'package:google_ml_kit/google_ml_kit.dart';
 List<CameraDescription>? cameras;
 
 class FaceScanScreen extends StatefulWidget {
-  /// Pass a User to trigger login mode; null = register mode
   final User? user;
   final bool isLogin;
   final String? registerName;
+  final User? registerUser; // full user object for registration
 
   const FaceScanScreen({
     super.key,
     this.user,
     this.isLogin = false,
     this.registerName,
+    this.registerUser,
   });
 
   @override
@@ -117,7 +118,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
         image,
         face,
         widget.isLogin,
-        widget.registerName ?? '',
+        widget.registerUser ?? User(name: widget.registerName ?? ''),
       );
 
       if (!mounted) return;
@@ -125,11 +126,10 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       if (widget.isLogin) {
         if (result != null) {
           _showSuccess("Welcome back, ${result.name}!", () {
-            Navigator.pushReplacement(
+            Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                builder: (_) => HomeScreen(user: result),
-              ),
+              MaterialPageRoute(builder: (_) => HomeScreen(user: result)),
+              (_) => false,
             );
           });
         } else {
@@ -138,9 +138,13 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
           if (mounted) Navigator.pop(context);
         }
       } else {
-        // Register success
+        // Register success — go home
         _showSuccess("Face registered successfully!", () {
-          Navigator.pop(context);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => HomeScreen(user: widget.registerUser ?? User(name: widget.registerName))),
+            (_) => false,
+          );
         });
       }
     } catch (e) {
