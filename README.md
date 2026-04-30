@@ -107,3 +107,42 @@ When building the app, `jniLibs` are often bundled for different Android archite
 - `x86_64` (64-bit Android Emulators)
 
 If you encounter an issue like `"UnsatisfiedLinkError: dlopen failed: library not found"`, it usually means the correct `.so` file for the specific device's CPU architecture is missing from the `jniLibs` bundle.
+
+---
+
+## 🔬 Deep Dive: Camera Timing & ML Pipeline
+
+If you are looking to understand the core mechanics of how the app handles real-time computer vision, here is a breakdown of the Camera and ML Kit workflow. This serves as an excellent technical outline for understanding the recognition pipeline.
+
+### 1. Camera Initialization & Stream
+The app utilizes the `camera` package to access the front-facing lens. To ensure the ML algorithms run efficiently without causing frame drops or overheating, the camera is initialized with `ResolutionPreset.low`. The image format is explicitly set to `nv21` (a YUV color space format), which is highly optimized for Android computer vision processing.
+
+Once initialized, the app starts an image stream (`startImageStream`), which pushes real-time frames to the processing pipeline.
+
+### 2. Throttling and Frame Timing
+A live camera feed can produce 30 to 60 frames per second. Running heavy ML inference on *every single frame* would instantly overload the device's CPU/GPU and drain the battery. To prevent this, the app implements a **throttling mechanism**:
+- **Registration Mode:** The app waits **800 milliseconds** between processing frames.
+- **Login Mode:** The app waits **500 milliseconds** between processing frames.
+
+If a frame arrives before the throttle duration has passed, or if the app is currently busy processing the previous frame (`_isProcessing`), the frame is simply dropped.
+
+### 3. Google ML Kit: Face Detection
+When a valid frame is captured, it is converted into an `InputImage` and passed to **Google ML Kit's Face Detector**.
+- **Configuration:** The detector is configured with `FaceDetectorMode.fast` and `enableClassification: false`. We don't care if the user is smiling or blinking; we only need a fast and accurate bounding box around the face.
+- **Handling Multiple Faces:** If the camera detects multiple faces in the frame, the app uses a `reduce` function to identify the face with the largest bounding box width (`a.boundingBox.width > b.boundingBox.width`). This ensures that only the person closest to the camera is scanned.
+
+### 4. TFLite: Face Embedding & L2 Normalization
+Once a face is detected and cropped using the ML Kit bounding box, it is passed to our **TensorFlow Lite MobileFaceNet model**.
+- **Input:** The cropped face image is resized to `112x112` pixels and normalized before being fed into the TFLite interpreter.
+- **Output:** The model outputs an **embedding vector**—a multi-dimensional array of numbers that mathematically represents the unique features of the face.
+
+### 5. Multi-Sampling & Averaging
+To achieve high accuracy and prevent false negatives (caused by poor lighting or a slight blur), the app doesn't rely on just one frame.
+- **Registration:** Requires **8 successful samples**.
+- **Login:** Requires **5 successful samples**.
+
+Once all samples are collected, the app calculates the mathematical average of all the embedding vectors. This averaged vector is then normalized using **L2 Normalization** (`_mlService.l2Normalize()`). This creates a highly stable "master profile" for the scan.
+
+### 6. The Matching Process (Euclidean Distance)
+During login, the app compares the newly captured, averaged embedding vector against the vectors stored securely in the local `hive_flutter` database. 
+It calculates the **Euclidean Distance** between the vectors. If the distance between the vectors is lower than our strict threshold (`0.7`), the app considers it a match and logs the user in!
