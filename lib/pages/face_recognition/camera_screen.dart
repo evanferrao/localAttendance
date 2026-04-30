@@ -37,6 +37,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
   bool _isProcessing = false;
   String _statusMessage = "Position your face in the frame";
   DateTime _lastFrameTime = DateTime.fromMillisecondsSinceEpoch(0);
+  int _sensorOrientation = 0;
 
   @override
   void initState() {
@@ -61,13 +62,14 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
 
     _cameraController = CameraController(
       camera,
-      ResolutionPreset.low, // smaller frames = less memory pressure
+      ResolutionPreset.low,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.nv21,
     );
 
     await _cameraController.initialize();
     _cameraController.setFlashMode(FlashMode.off);
+    _sensorOrientation = camera.sensorOrientation;
 
     if (!mounted) return;
     setState(() => _isControllerInitialized = true);
@@ -119,6 +121,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
         face,
         widget.isLogin,
         widget.registerUser ?? User(name: widget.registerName ?? ''),
+        _sensorOrientation,
       );
 
       if (!mounted) return;
