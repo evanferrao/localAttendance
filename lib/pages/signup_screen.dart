@@ -61,7 +61,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 const Icon(Icons.person_add_alt_1, size: 56, color: Colors.greenAccent),
                 const SizedBox(height: 20),
                 const Text(
-                  "Create your profile",
+                  "Make your profile",
                   style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
