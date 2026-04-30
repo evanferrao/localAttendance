@@ -34,6 +34,29 @@ class MLService {
     await LocalDB.saveUser(user);
   }
 
+  /// Compare a pre-computed averaged embedding against all registered users
+  Future<User?> loginWithEmbedding(List<double> embedding) async {
+    final users = LocalDB.getUsers();
+    if (users.isEmpty) return null;
+
+    User? bestMatch;
+    double bestDist = double.infinity;
+
+    for (final u in users) {
+      if (u.array == null || u.array!.isEmpty) continue;
+      final stored = l2Normalize(List<double>.from(u.array!));
+      final dist = euclideanDistance(embedding, stored);
+      debugPrint("Distance to ${u.name}: $dist");
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestMatch = u;
+      }
+    }
+
+    debugPrint("Best: ${bestMatch?.name} dist=$bestDist threshold=$threshold");
+    return bestDist < threshold ? bestMatch : null;
+  }
+
   /// Compare face against all registered users, return best match or null
   Future<User?> login(CameraImage image, Face face, int sensorOrientation) async {
     final embedding = await getEmbedding(image, face, sensorOrientation);

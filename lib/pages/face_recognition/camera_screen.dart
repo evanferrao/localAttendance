@@ -9,7 +9,9 @@ import 'package:google_ml_kit/google_ml_kit.dart';
 List<CameraDescription>? cameras;
 
 // How many samples to collect before finalizing registration
-const int _kRegisterSamples = 5;
+const int _kRegisterSamples = 8;
+// How many samples to collect before finalizing login
+const int _kLoginSamples = 5;
 
 class FaceScanScreen extends StatefulWidget {
   final bool isLogin;
@@ -42,6 +44,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
 
   int get _sampleCount => _samples.length;
   bool get _isRegistering => !widget.isLogin;
+  int get _targetSamples => _isRegistering ? _kRegisterSamples : _kLoginSamples;
 
   @override
   void initState() {
@@ -115,7 +118,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       if (_isRegistering) {
         await _collectSample(image, face);
       } else {
-        await _doLogin(image, face);
+        await _collectSample(image, face);
       }
     } catch (e) {
       debugPrint("Detection error: $e");
@@ -128,32 +131,40 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
   /// Collect one embedding sample; finalize when enough are gathered
   Future<void> _collectSample(CameraImage image, Face face) async {
     final embedding = await _mlService.getEmbedding(image, face, _sensorOrientation);
-
     _samples.add(embedding);
 
     if (mounted) {
       setState(() {
-        _statusMessage = _sampleCount < _kRegisterSamples ? "Hold still... ($_sampleCount/$_kRegisterSamples)" : "Processing...";
+        _statusMessage = _sampleCount < _targetSamples
+            ? _isRegistering
+                ? "Hold still... ($_sampleCount/$_targetSamples)"
+                : "Scanning... ($_sampleCount/$_targetSamples)"
+            : "Processing...";
       });
     }
 
-    if (_sampleCount >= _kRegisterSamples) {
+    if (_sampleCount >= _targetSamples) {
       _isProcessing = true;
       await _cameraController.stopImageStream();
-      await _finalizeRegistration();
+      if (_isRegistering) {
+        await _finalizeRegistration();
+      } else {
+        await _finalizeLogin();
+      }
     }
   }
 
-  Future<void> _finalizeRegistration() async {
-    // Average all samples element-wise for a stable embedding
+  List<double> _averageSamples() {
     final size = _samples.first.length;
     final averaged = List<double>.generate(size, (i) {
       return _samples.map((s) => s[i]).reduce((a, b) => a + b) / _samples.length;
     });
-    final normalized = _mlService.l2Normalize(averaged);
+    return _mlService.l2Normalize(averaged);
+  }
 
+  Future<void> _finalizeRegistration() async {
     final user = widget.registerUser!;
-    user.array = normalized;
+    user.array = _averageSamples();
     await _mlService.saveUser(user);
 
     if (!mounted) return;
@@ -166,14 +177,9 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
     });
   }
 
-  Future<void> _doLogin(CameraImage image, Face face) async {
-    _isProcessing = true;
-    await _cameraController.stopImageStream();
-
+  Future<void> _finalizeLogin() async {
     if (mounted) setState(() => _statusMessage = "Verifying...");
-
-    final result = await _mlService.login(image, face, _sensorOrientation);
-
+    final result = await _mlService.loginWithEmbedding(_averageSamples());
     if (!mounted) return;
 
     if (result != null) {
@@ -253,7 +259,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _isRegistering ? (_sampleCount / _kRegisterSamples).clamp(0.0, 1.0) : null;
+    final progress = (_sampleCount / _targetSamples).clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -264,22 +270,19 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       ),
       body: Stack(
         children: [
-          // Camera preview
           if (_isControllerInitialized)
             Positioned.fill(child: CameraPreview(_cameraController))
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-          // Oval overlay
           Positioned.fill(
             child: CustomPaint(
               painter: _FaceOverlayPainter(
-                borderColor: _isRegistering && _sampleCount > 0 ? Colors.greenAccent : Colors.white70,
+                borderColor: _sampleCount > 0 ? Colors.greenAccent : Colors.white70,
               ),
             ),
           ),
 
-          // Top instruction
           Positioned(
             top: 0,
             left: 0,
@@ -288,40 +291,40 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
               padding: const EdgeInsets.all(12),
               color: Colors.black45,
               child: Text(
-                widget.isLogin ? "Look straight at the camera" : "Keep your face inside the oval — stay still",
+                widget.isLogin ? "Look straight at the camera — hold still" : "Keep your face inside the oval — stay still",
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ),
           ),
 
-          // Progress bar (registration only)
-          if (_isRegistering)
-            Positioned(
-              bottom: 120,
-              left: 40,
-              right: 40,
-              child: Column(
-                children: [
-                  Text(
-                    "Scanning $_sampleCount / $_kRegisterSamples",
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 6,
-                      backgroundColor: Colors.white12,
-                      valueColor: const AlwaysStoppedAnimation(Colors.greenAccent),
+          // Progress bar — shown for both register and login
+          Positioned(
+            bottom: 120,
+            left: 40,
+            right: 40,
+            child: Column(
+              children: [
+                Text(
+                  _isRegistering ? "Registering $_sampleCount / $_targetSamples" : "Scanning $_sampleCount / $_targetSamples",
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation(
+                      _isRegistering ? Colors.greenAccent : Colors.blueAccent,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-          // Status message
           Positioned(
             bottom: 52,
             left: 0,
