@@ -1,4 +1,4 @@
-# Face Attendance App (face_att)
+# Face Attendance App (flutter_face_attence_app)
 
 A robust and secure Flutter application for handling facial recognition-based attendance. The project utilizes Google ML Kit for face detection and TensorFlow Lite for face recognition and embeddings extraction, running fully on-device for maximum privacy and performance.
 
