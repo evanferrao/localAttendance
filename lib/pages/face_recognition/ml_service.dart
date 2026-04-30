@@ -10,57 +10,55 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 
 class MLService {
   static const int inputSize = 112;
-  // L2-normalized same-person distance is typically < 0.6,
-  // different-person > 0.8. 0.7 gives a safe margin.
   static const double threshold = 0.7;
 
   Interpreter? _interpreter;
   bool _isInitialized = false;
 
-  Future<User?> predict(
-    CameraImage cameraImage,
-    Face face,
-    bool loginUser,
-    User registerUser,
-    int sensorOrientation,
-  ) async {
+  /// Get a single L2-normalized embedding for a face
+  Future<List<double>> getEmbedding(CameraImage image, Face face, int sensorOrientation) async {
     await _ensureInitialized();
-    if (_interpreter == null) {
-      debugPrint("❌ Interpreter not available");
-      return null;
-    }
-
-    final embedding = await _getEmbedding(cameraImage, face, sensorOrientation);
-
-    if (!loginUser) {
-      registerUser.array = embedding;
-      await LocalDB.setUserDetails(registerUser);
-      return registerUser;
-    } else {
-      final user = LocalDB.getUser();
-      if (user.array == null || user.array!.isEmpty) return null;
-
-      final stored = _l2Normalize(List<double>.from(user.array!));
-      final dist = euclideanDistance(embedding, stored);
-      debugPrint("Face distance: $dist (threshold: $threshold)");
-
-      return dist < threshold ? user : null;
-    }
-  }
-
-  Future<List<double>> _getEmbedding(CameraImage image, Face face, int sensorOrientation) async {
     final args = ImageConverter.buildArgs(image, face, inputSize, sensorOrientation);
-    final flatInput = await compute(ImageConverter.cropAndNormalizeIsolate, args);
+    final flat = await compute(ImageConverter.cropAndNormalizeIsolate, args);
 
-    final inputBytes = Float32List.fromList(flatInput);
+    final inputBytes = Float32List.fromList(flat);
     final embeddingSize = _interpreter!.getOutputTensor(0).shape.reduce((a, b) => a * b);
     final outputBytes = Float32List(embeddingSize);
 
     _interpreter!.run(inputBytes.buffer, outputBytes.buffer);
-    return _l2Normalize(outputBytes.toList());
+    return l2Normalize(outputBytes.toList());
   }
 
-  List<double> _l2Normalize(List<double> v) {
+  /// Save user with embedding to local DB
+  Future<void> saveUser(User user) async {
+    await LocalDB.saveUser(user);
+  }
+
+  /// Compare face against all registered users, return best match or null
+  Future<User?> login(CameraImage image, Face face, int sensorOrientation) async {
+    final embedding = await getEmbedding(image, face, sensorOrientation);
+    final users = LocalDB.getUsers();
+    if (users.isEmpty) return null;
+
+    User? bestMatch;
+    double bestDist = double.infinity;
+
+    for (final u in users) {
+      if (u.array == null || u.array!.isEmpty) continue;
+      final stored = l2Normalize(List<double>.from(u.array!));
+      final dist = euclideanDistance(embedding, stored);
+      debugPrint("Distance to ${u.name}: $dist");
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestMatch = u;
+      }
+    }
+
+    debugPrint("Best: ${bestMatch?.name} dist=$bestDist threshold=$threshold");
+    return bestDist < threshold ? bestMatch : null;
+  }
+
+  List<double> l2Normalize(List<double> v) {
     final norm = sqrt(v.fold(0.0, (s, e) => s + e * e));
     if (norm == 0.0) return v;
     return v.map((e) => e / norm).toList();

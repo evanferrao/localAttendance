@@ -1,4 +1,5 @@
 import 'package:face_att/models/user.dart';
+import 'package:face_att/pages/login_screen.dart';
 import 'package:face_att/pages/signup_screen.dart';
 import 'package:face_att/utils/local_db.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +23,7 @@ class HomeScreen extends StatelessWidget {
             tooltip: "Logout",
             onPressed: () => Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const SignupScreen()),
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
               (_) => false,
             ),
           ),
@@ -66,7 +67,7 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: () async {
-                  await HiveBoxes.clearAllBox();
+                  await LocalDB.deleteUser(user.id);
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,

@@ -1,20 +1,31 @@
 class User {
-  static const String nameKey = "user_name";
-  static const String emailKey = "user_email";
-  static const String phoneKey = "user_phone";
-  static const String arrayKey = "user_array";
-
+  final String id; // unique key in Hive
   String? name;
   String? email;
   String? phone;
   List? array;
 
-  User({this.name, this.email, this.phone, this.array});
+  User({
+    required this.id,
+    this.name,
+    this.email,
+    this.phone,
+    this.array,
+  });
 
-  Map<String, dynamic> toJson() => {
-        nameKey: name,
-        emailKey: email,
-        phoneKey: phone,
-        arrayKey: array,
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'array': array,
       };
+
+  factory User.fromMap(Map map) => User(
+        id: map['id'] as String,
+        name: map['name'] as String?,
+        email: map['email'] as String?,
+        phone: map['phone'] as String?,
+        array: map['array'] != null ? List.from(map['array']) : null,
+      );
 }

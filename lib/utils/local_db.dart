@@ -3,43 +3,57 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 class HiveBoxes {
   HiveBoxes._();
-
-  static const userBox = "user_box";
-
-  static Box get _box => Hive.box(userBox);
+  static const usersBox = "users_box";
+  static Box get _box => Hive.box(usersBox);
 
   static Future<void> initialize() async {
-    await Hive.openBox(userBox);
+    await Hive.openBox(usersBox);
   }
 
-  static Future<void> clearAllBox() async {
-    await _box.clear();
-  }
+  static Future<void> clearAllBox() async => await _box.clear();
 }
 
 class LocalDB {
   static Box get _box => HiveBoxes._box;
 
-  static bool get hasUser {
-    final name = _box.get(User.nameKey);
-    return name != null && (name as String).isNotEmpty;
-  }
+  static bool get hasUsers => getUsers().isNotEmpty;
 
-  static User getUser() {
-    return User(
-      name: _box.get(User.nameKey) as String?,
-      email: _box.get(User.emailKey) as String?,
-      phone: _box.get(User.phoneKey) as String?,
-      array: _box.get(User.arrayKey) != null ? List.from(_box.get(User.arrayKey)) : null,
-    );
-  }
-
-  static Future<void> setUserDetails(User user) async {
-    await _box.put(User.nameKey, user.name);
-    await _box.put(User.emailKey, user.email);
-    await _box.put(User.phoneKey, user.phone);
-    if (user.array != null) {
-      await _box.put(User.arrayKey, user.array);
+  /// All registered users — skips malformed/legacy entries
+  static List<User> getUsers() {
+    final result = <User>[];
+    for (final v in _box.values) {
+      try {
+        if (v is Map) {
+          final user = User.fromMap(Map.from(v));
+          if (user.id.isNotEmpty && user.name != null) {
+            result.add(user);
+          }
+        }
+      } catch (_) {
+        // skip malformed legacy entries
+      }
     }
+    return result;
+  }
+
+  /// Single user by id
+  static User? getUser(String id) {
+    final raw = _box.get(id);
+    if (raw == null) return null;
+    try {
+      return User.fromMap(Map.from(raw as Map));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Save or update a user (keyed by user.id)
+  static Future<void> saveUser(User user) async {
+    await _box.put(user.id, user.toMap());
+  }
+
+  /// Delete a user by id
+  static Future<void> deleteUser(String id) async {
+    await _box.delete(id);
   }
 }

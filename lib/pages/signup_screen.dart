@@ -18,7 +18,9 @@ class _SignupScreenState extends State<SignupScreen> {
   void _proceed() {
     if (!_formKey.currentState!.validate()) return;
 
+    // Use timestamp as unique ID
     final user = User(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
@@ -29,7 +31,6 @@ class _SignupScreenState extends State<SignupScreen> {
       MaterialPageRoute(
         builder: (_) => FaceScanScreen(
           isLogin: false,
-          registerName: user.name,
           registerUser: user,
         ),
       ),
