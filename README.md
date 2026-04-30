@@ -16,6 +16,13 @@ A robust and secure Flutter application for handling facial recognition-based at
 - **Storage:** `hive_flutter` (NoSQL Key-Value database).
 - **UI/UX:** `lottie` for animations, `cupertino_icons` for iOS style icons.
 
+### Development Environment (Last Built With)
+- **Flutter:** `3.27.0` • channel [user-branch]
+- **Framework Revision:** `8495dee1fd` (2024-12-10)
+- **Engine Revision:** `83bacfc525`
+- **Dart:** `3.6.0`
+- **DevTools:** `2.40.2`
+
 ---
 
 ## 🚀 Running the Project
@@ -146,3 +153,11 @@ Once all samples are collected, the app calculates the mathematical average of a
 ### 6. The Matching Process (Euclidean Distance)
 During login, the app compares the newly captured, averaged embedding vector against the vectors stored securely in the local `hive_flutter` database. 
 It calculates the **Euclidean Distance** between the vectors. If the distance between the vectors is lower than our strict threshold (`0.7`), the app considers it a match and logs the user in!
+
+
+
+### Learn More
+
+- Face Recognition App in Flutter using TensorFlow Lite & Google ML Kit 
+
+https://dev.to/yash_makan/face-recognition-app-in-flutter-using-tensorflowlite-google-ml-kit-nd3
