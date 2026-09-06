@@ -11,6 +11,10 @@
 -keep class org.tensorflow.** { *; }
 -keepclassmembers class org.tensorflow.** { *; }
 
+# ONNX Runtime
+-keep class ai.onnxruntime.** { *; }
+-keepclassmembers class ai.onnxruntime.** { *; }
+
 # ML Kit — keep all vision classes to avoid R8 missing class errors
 -keep class com.google.mlkit.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_** { *; }

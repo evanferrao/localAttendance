@@ -1,21 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:face_att/models/user.dart';
-import 'package:face_att/pages/face_recognition/frame_buffer.dart';
-import 'package:face_att/pages/face_recognition/liveness_service.dart';
 import 'package:face_att/pages/face_recognition/ml_service.dart';
-import 'package:face_att/pages/face_recognition/spoof_guard.dart';
-import 'package:face_att/pages/home_screen.dart';
-import 'package:flutter/foundation.dart';
+import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
 
 List<CameraDescription>? cameras;
-
-const int _kRegisterSamples = 8;
-const int _kLoginSamples = 5;
-
-// Minimum motion variance to reject static-image spoofs
-const double _kMinVariance = 0.02;
 
 class FaceScanScreen extends StatefulWidget {
   final bool isLogin;
@@ -28,37 +20,26 @@ class FaceScanScreen extends StatefulWidget {
 }
 
 class _FaceScanScreenState extends State<FaceScanScreen> {
+  static const int kCaptureIntervalSeconds = 5;
+
   late CameraController _cameraController;
-  late FaceDetector _faceDetector;
   final MLService _mlService = MLService();
-  final LivenessService _liveness = LivenessService();
-  final FrameBuffer _frameBuffer = FrameBuffer(maxFrames: 6);
 
   bool _isControllerInitialized = false;
-  bool _isDetecting = false;
+  bool _isCapturing = false;
   bool _isProcessing = false;
-  int _sensorOrientation = 0;
+  bool _faceDetected = false;
 
-  final List<List<double>> _samples = [];
-  String _statusMessage = "Position your face in the frame";
-  String _livenessInstruction = "";
-  DateTime _lastFrameTime = DateTime.fromMillisecondsSinceEpoch(0);
+  int _countdown = kCaptureIntervalSeconds;
+  Timer? _intervalTimer;
+
+  String _statusMessage = "Position your face in the oval frame";
 
   bool get _isRegistering => !widget.isLogin;
-  int get _sampleCount => _samples.length;
-  int get _targetSamples => _isRegistering ? _kRegisterSamples : _kLoginSamples;
 
   @override
   void initState() {
     super.initState();
-    _faceDetector = GoogleMlKit.vision.faceDetector(
-      FaceDetectorOptions(
-        performanceMode: FaceDetectorMode.fast,
-        // Must enable classification for eye open probability
-        enableClassification: true,
-        enableTracking: false,
-      ),
-    );
     _initializeCamera();
   }
 
@@ -70,357 +51,387 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       orElse: () => cameras!.first,
     );
 
+    // Use ResolutionPreset.medium for sharp, clean photo capture with smooth preview
     _cameraController = CameraController(
       camera,
-      ResolutionPreset.low,
+      ResolutionPreset.medium,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.nv21,
     );
-
-    await _cameraController.initialize();
-    _cameraController.setFlashMode(FlashMode.off);
-    _sensorOrientation = camera.sensorOrientation;
-
-    if (!mounted) return;
-    setState(() => _isControllerInitialized = true);
-    _cameraController.startImageStream(_processCameraImage);
-  }
-
-  void _processCameraImage(CameraImage image) async {
-    if (_isDetecting || _isProcessing) return;
-
-    final throttle = _isRegistering ? 700 : 500;
-    final now = DateTime.now();
-    if (now.difference(_lastFrameTime).inMilliseconds < throttle) return;
-    _lastFrameTime = now;
-    _isDetecting = true;
 
     try {
-      final camera = cameras!.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras!.first,
-      );
+      await _cameraController.initialize();
+      await _cameraController.setFlashMode(FlashMode.off);
 
-      final inputImage = _buildInputImage(image, camera);
-      if (inputImage == null) {
-        _isDetecting = false;
-        return;
-      }
+      if (!mounted) return;
+      setState(() => _isControllerInitialized = true);
 
-      final faces = await _faceDetector.processImage(inputImage);
-
-      if (faces.isEmpty) {
-        _update(status: "No face detected — look at the camera");
-        _isDetecting = false;
-        return;
-      }
-
-      final face = faces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
-
-      // ── 1. Spoof guard (geometry check) ──────────────────────────────
-      final spoofMsg = SpoofGuard.check(face);
-      if (spoofMsg != null) {
-        _update(status: spoofMsg);
-        _isDetecting = false;
-        return;
-      }
-
-      // ── 2. Liveness check ────────────────────────────────────────────
-      final livenessOk = _liveness.process(face);
-      _update(
-        liveness: _liveness.currentInstruction,
-        status: livenessOk ? "Liveness confirmed — scanning..." : "",
-      );
-
-      if (!livenessOk) {
-        _isDetecting = false;
-        return;
-      }
-
-      // ── 3. Get embedding ─────────────────────────────────────────────
-      final embedding = await _mlService.getEmbedding(image, face, _sensorOrientation);
-
-      // ── 4. Motion variance anti-spoof ────────────────────────────────
-      _frameBuffer.add(embedding);
-      if (_frameBuffer.isFull && _frameBuffer.motionVariance < _kMinVariance) {
-        _update(status: "Static image detected — please move naturally");
-        _frameBuffer.reset();
-        _isDetecting = false;
-        return;
-      }
-
-      // ── 5. Collect sample ────────────────────────────────────────────
-      await _collectSample(embedding);
+      // Start 5-second periodic capture loop
+      _startCountdownLoop();
     } catch (e) {
-      debugPrint("Detection error: $e");
-      _update(status: "Error — try again");
-    } finally {
-      _isDetecting = false;
+      debugPrint("Camera init error: $e");
+      _update(status: "Camera initialization failed: $e");
     }
   }
 
-  Future<void> _collectSample(List<double> embedding) async {
-    _samples.add(embedding);
-    _update(
-      status: _sampleCount < _targetSamples
-          ? (_isRegistering ? "Hold still... ($_sampleCount/$_targetSamples)" : "Scanning... ($_sampleCount/$_targetSamples)")
-          : "Processing...",
-    );
-
-    if (_sampleCount < _targetSamples) return;
-
-    _isProcessing = true;
-    await _cameraController.stopImageStream();
-
-    final averaged = _averageSamples();
-
-    if (_isRegistering) {
-      final user = widget.registerUser!;
-      user.array = averaged;
-      await _mlService.saveUser(user);
+  void _startCountdownLoop() {
+    _intervalTimer?.cancel();
+    _countdown = kCaptureIntervalSeconds;
+    _intervalTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
-      _showSuccess("Face registered!", () {
-        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => HomeScreen(user: user)), (_) => false);
-      });
-    } else {
-      final result = await _mlService.loginWithEmbedding(averaged);
-      if (!mounted) return;
-      if (result != null) {
-        _showSuccess("Welcome back, ${result.name}!", () {
-          Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => HomeScreen(user: result)), (_) => false);
-        });
-      } else {
-        _showError("Face not recognized. Try again.");
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
-          // Reset and try again instead of popping
-          _samples.clear();
-          _frameBuffer.reset();
-          _liveness.reset();
-          _isProcessing = false;
-          _cameraController.startImageStream(_processCameraImage);
-          _update(status: "Try again", liveness: _liveness.currentInstruction);
+      if (_isCapturing || _isProcessing) return;
+
+      setState(() {
+        if (_countdown > 1) {
+          _countdown--;
+          _statusMessage = "Align face in oval • Auto-scan in ${_countdown}s";
+        } else {
+          _countdown = kCaptureIntervalSeconds;
+          _triggerPhotoCapture();
         }
-      }
-    }
-  }
-
-  List<double> _averageSamples() {
-    final size = _samples.first.length;
-    final avg = List<double>.generate(size, (i) => _samples.map((s) => s[i]).reduce((a, b) => a + b) / _samples.length);
-    return _mlService.l2Normalize(avg);
-  }
-
-  void _update({String? status, String? liveness}) {
-    if (!mounted) return;
-    setState(() {
-      if (status != null && status.isNotEmpty) _statusMessage = status;
-      if (liveness != null) _livenessInstruction = liveness;
+      });
     });
   }
 
-  InputImage? _buildInputImage(CameraImage image, CameraDescription camera) {
-    final buf = WriteBuffer();
-    for (final p in image.planes) buf.putUint8List(p.bytes);
-    final bytes = buf.done().buffer.asUint8List();
+  /// Trigger photo capture and landmark-aligned ArcFace inference
+  Future<void> _triggerPhotoCapture() async {
+    if (_isCapturing || _isProcessing || !_isControllerInitialized) return;
+    if (_cameraController.value.isTakingPicture) return;
 
-    final rotation = InputImageRotationValue.fromRawValue(camera.sensorOrientation);
-    if (rotation == null) return null;
+    setState(() {
+      _isCapturing = true;
+      _statusMessage = "📸 Capturing photo for high-accuracy scan...";
+    });
 
-    return InputImage.fromBytes(
-      bytes: bytes,
-      metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation,
-        format: InputImageFormat.nv21,
-        bytesPerRow: image.planes.first.bytesPerRow,
-      ),
-    );
+    XFile? pictureFile;
+    try {
+      pictureFile = await _cameraController.takePicture();
+      final bytes = await pictureFile.readAsBytes();
+
+      // Clean up temp file immediately
+      try {
+        await File(pictureFile.path).delete();
+      } catch (_) {}
+
+      if (!mounted) return;
+      setState(() => _statusMessage = "Analyzing photo with ArcFace ResNet-50...");
+
+      final faceData = await _mlService.detectFaceOnImageBytes(
+        bytes,
+        sensorOrientation: _cameraController.description.sensorOrientation,
+      );
+
+      if (faceData == null) {
+        if (mounted) {
+          setState(() {
+            _faceDetected = false;
+            _statusMessage = "No face detected in photo • Next scan in ${kCaptureIntervalSeconds}s";
+            _countdown = kCaptureIntervalSeconds;
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() => _faceDetected = true);
+      }
+
+      final effectiveBytes = faceData.correctedImageBytes ?? bytes;
+      final embedding = await _mlService.getEmbeddingFromImageBytes(
+        effectiveBytes,
+        boundingBox: faceData.boundingBox,
+        landmarks: faceData.landmarks,
+      );
+
+      await _processSingleFace(embedding);
+    } catch (e) {
+      debugPrint("Photo capture/inference error: $e");
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Scan error. Retrying in ${kCaptureIntervalSeconds}s...";
+          _countdown = kCaptureIntervalSeconds;
+        });
+        _showError("Scan error: $e");
+      }
+    } finally {
+      if (mounted && !_isProcessing) {
+        setState(() => _isCapturing = false);
+      }
+    }
+  }
+
+  Future<void> _processSingleFace(List<double> embedding) async {
+    _intervalTimer?.cancel();
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = _isRegistering ? "Registering face..." : "Matching identity...";
+    });
+
+    if (_isRegistering && widget.registerUser != null) {
+      final user = widget.registerUser!;
+      user.array = embedding;
+      await _mlService.saveUser(user);
+      if (!mounted) return;
+      _showSuccess("Face registered successfully with high-accuracy ArcFace!", () {
+        Navigator.pop(context, true);
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    _showSuccess("Face scan completed successfully!", () {
+      Navigator.pop(context, true);
+    });
+  }
+
+  void _update({String? status}) {
+    if (!mounted) return;
+    setState(() {
+      if (status != null && status.isNotEmpty) _statusMessage = status;
+    });
   }
 
   void _showSuccess(String message, VoidCallback onDone) {
+    if (!mounted) return;
     _update(status: message);
+    bool proceeded = false;
+    void proceed() {
+      if (!proceeded && mounted) {
+        proceeded = true;
+        Navigator.of(context, rootNavigator: true).pop();
+        onDone();
+      }
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-        content: Text(message, textAlign: TextAlign.center),
+        backgroundColor: AppColors.navySurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Icon(Icons.check_circle, color: AppColors.present, size: 52),
+        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16)),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onDone();
-            },
-            child: const Text("Continue"),
+            onPressed: proceed,
+            child: const Text("Continue", style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
+
+    Future.delayed(const Duration(milliseconds: 1500), proceed);
   }
 
   void _showError(String message) {
     if (!mounted) return;
     _update(status: message);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
     );
   }
 
   @override
   void dispose() {
-    _cameraController.dispose();
-    _faceDetector.close();
+    _intervalTimer?.cancel();
+    if (_isControllerInitialized) {
+      _cameraController.dispose();
+    }
     _mlService.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final progress = (_sampleCount / _targetSamples).clamp(0.0, 1.0);
-    final livenessComplete = _liveness.isDone;
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
-        title: Text(widget.isLogin ? "Face Login" : "Register Face"),
+        title: Text(widget.isLogin ? "Face Login (5s Photo Scan)" : "Register Face (5s Photo Scan)"),
       ),
       body: Stack(
         children: [
-          // Camera
+          // 1. Camera preview
           if (_isControllerInitialized)
             Positioned.fill(child: CameraPreview(_cameraController))
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-          // Oval overlay
+          // 2. Oval face guide overlay
           Positioned.fill(
             child: CustomPaint(
               painter: _FaceOverlayPainter(
-                borderColor: livenessComplete ? Colors.greenAccent : Colors.orangeAccent,
+                borderColor: _faceDetected
+                    ? Colors.greenAccent
+                    : (_isCapturing ? Colors.amberAccent : Colors.white54),
               ),
             ),
           ),
 
-          // Liveness instruction banner (top)
-          if (!livenessComplete)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                color: Colors.orange.withValues(alpha: 0.85),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.face_retouching_natural, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      _livenessInstruction.isEmpty ? _liveness.currentInstruction : _livenessInstruction,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Liveness steps indicator
-          if (!livenessComplete)
-            Positioned(
-              top: 56,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _StepDot(done: _liveness.isDone || _currentStepIndex > 0, label: "Blink"),
-                  const SizedBox(width: 8),
-                  _StepDot(done: _currentStepIndex > 1, label: "Left"),
-                  const SizedBox(width: 8),
-                  _StepDot(done: _currentStepIndex > 2, label: "Right"),
-                ],
-              ),
-            ),
-
-          // Progress bar (shown after liveness)
-          if (livenessComplete)
-            Positioned(
-              bottom: 120,
-              left: 40,
-              right: 40,
-              child: Column(
-                children: [
-                  Text(
-                    _isRegistering ? "Registering $_sampleCount / $_targetSamples" : "Scanning $_sampleCount / $_targetSamples",
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 6,
-                      backgroundColor: Colors.white12,
-                      valueColor: AlwaysStoppedAnimation(
-                        _isRegistering ? Colors.greenAccent : Colors.blueAccent,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Status message
+          // 3. Top information chips
           Positioned(
-            bottom: 52,
-            left: 0,
-            right: 0,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-              ),
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Column(
+              children: [
+                // Model & Interval Chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.memory, color: Colors.cyanAccent, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        _mlService.activeModelName,
+                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.cyanAccent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text("5s Interval", style: TextStyle(color: Colors.white, fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Face detected status chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _faceDetected ? Colors.greenAccent : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _faceDetected ? Icons.check_circle : Icons.face,
+                        color: _faceDetected ? Colors.greenAccent : Colors.white70,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _faceDetected ? "Face in Frame" : "Keep face inside oval",
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 4. Bottom action panel
+          Positioned(
+            bottom: 32,
+            left: 20,
+            right: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Status message banner
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _isCapturing ? Colors.amberAccent : Colors.white12,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_isCapturing) ...[
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amberAccent),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Flexible(
+                        child: Text(
+                          _statusMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _isCapturing ? Colors.amberAccent : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Manual "Scan Now" button with countdown badge
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: (_isCapturing || _isProcessing) ? null : _triggerPhotoCapture,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade800,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 4,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isCapturing || _isProcessing)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        else ...[
+                          const Icon(Icons.camera_alt, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            "Scan Now",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              "${_countdown}s",
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  int get _currentStepIndex => _liveness.stepIndex;
-}
-
-class _StepDot extends StatelessWidget {
-  final bool done;
-  final String label;
-  const _StepDot({required this.done, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: done ? Colors.greenAccent : Colors.white24,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: done ? Colors.greenAccent : Colors.white38, fontSize: 10)),
-      ],
     );
   }
 }
@@ -433,8 +444,8 @@ class _FaceOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final ovalRect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.44),
-      width: size.width * 0.65,
-      height: size.height * 0.42,
+      width: size.width * 0.68,
+      height: size.height * 0.44,
     );
 
     canvas.drawPath(
@@ -446,11 +457,12 @@ class _FaceOverlayPainter extends CustomPainter {
     );
 
     canvas.drawOval(
-        ovalRect,
-        Paint()
-          ..color = borderColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.0);
+      ovalRect,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
+    );
   }
 
   @override

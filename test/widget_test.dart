@@ -1,30 +1,24 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:face_att/main.dart';
+import 'package:face_att/models/user.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('User serialization and initialization test', () {
+    final user = User(
+      id: 'USER_101',
+      name: 'John Doe',
+      email: 'john@example.com',
+      phone: '1234567890',
+      array: List.filled(512, 0.1),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final map = user.toMap();
+    expect(map['id'], 'USER_101');
+    expect(map['name'], 'John Doe');
+    expect((map['array'] as List).length, 512);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    final fromMap = User.fromMap(map);
+    expect(fromMap.id, 'USER_101');
+    expect(fromMap.name, 'John Doe');
+    expect(fromMap.array?.length, 512);
   });
 }

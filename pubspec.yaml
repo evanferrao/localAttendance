@@ -40,10 +40,14 @@ dependencies:
   google_ml_kit: ^0.20.0
   image: ^4.8.0
   lottie: ^3.3.1
-  
-
-
-
+  onnxruntime: ^1.4.1
+  image_picker: ^1.2.0
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.4
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  crypto: ^3.0.7
+  share_plus: ^12.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

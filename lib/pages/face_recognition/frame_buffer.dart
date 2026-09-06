@@ -18,7 +18,9 @@ class FrameBuffer {
     final size = _frames.first.length;
     final avg = List<double>.filled(size, 0.0);
     for (final f in _frames) {
-      for (int i = 0; i < size; i++) avg[i] += f[i];
+      for (int i = 0; i < size; i++) {
+        avg[i] += f[i];
+      }
     }
     return avg.map((e) => e / _frames.length).toList();
   }
