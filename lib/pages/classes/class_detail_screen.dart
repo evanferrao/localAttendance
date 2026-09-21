@@ -64,9 +64,11 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     final unassigned = allTeachers.where((t) => !currentTeacherIds.contains(t.id)).toList();
 
     if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.navySurface,
+      backgroundColor: colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return Padding(
@@ -78,7 +80,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Assign Teacher", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Assign Teacher", style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     onPressed: () async {
                       Navigator.pop(ctx);
@@ -91,16 +93,16 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                         _loadData();
                       }
                     },
-                    icon: const Icon(Icons.add, size: 18, color: AppColors.primaryLight),
-                    label: const Text("Create New", style: TextStyle(color: AppColors.primaryLight)),
+                    icon: Icon(Icons.add, size: 18, color: colorScheme.primary),
+                    label: Text("Create New", style: TextStyle(color: colorScheme.primary)),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               if (unassigned.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text("All existing teachers are already assigned to this class.", style: TextStyle(color: AppColors.textSecondary)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text("All existing teachers are already assigned to this class.", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                 )
               else
                 Flexible(
@@ -110,9 +112,9 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                     itemBuilder: (_, i) {
                       final t = unassigned[i];
                       return ListTile(
-                        title: Text(t.displayName, style: const TextStyle(color: Colors.white)),
-                        subtitle: Text("@${t.username}", style: const TextStyle(color: AppColors.textSecondary)),
-                        trailing: const Icon(Icons.add_circle_outline, color: AppColors.primaryLight),
+                        title: Text(t.displayName, style: TextStyle(color: colorScheme.onSurface)),
+                        subtitle: Text("@${t.username}", style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                        trailing: Icon(Icons.add_circle_outline, color: colorScheme.primary),
                         onTap: () async {
                           Navigator.pop(ctx);
                           await _classRepo.assignTeacherToClass(_class.id!, t.id!);
@@ -135,9 +137,11 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     final unenrolled = allStudents.where((s) => !currentStudentIds.contains(s.id)).toList();
 
     if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.navySurface,
+      backgroundColor: colorScheme.surfaceContainer,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return Padding(
@@ -149,7 +153,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Enroll Student", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Enroll Student", style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     onPressed: () async {
                       Navigator.pop(ctx);
@@ -162,16 +166,16 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                         _loadData();
                       }
                     },
-                    icon: const Icon(Icons.add, size: 18, color: AppColors.primaryLight),
-                    label: const Text("Create New", style: TextStyle(color: AppColors.primaryLight)),
+                    icon: Icon(Icons.add, size: 18, color: colorScheme.primary),
+                    label: Text("Create New", style: TextStyle(color: colorScheme.primary)),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               if (unenrolled.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text("All registered students are already in this class.", style: TextStyle(color: AppColors.textSecondary)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text("All registered students are already in this class.", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                 )
               else
                 Flexible(
@@ -181,9 +185,9 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                     itemBuilder: (_, i) {
                       final s = unenrolled[i];
                       return ListTile(
-                        title: Text(s.name, style: const TextStyle(color: Colors.white)),
-                        subtitle: Text(s.registerNumber, style: const TextStyle(color: AppColors.textSecondary)),
-                        trailing: const Icon(Icons.add_circle_outline, color: AppColors.primaryLight),
+                        title: Text(s.name, style: TextStyle(color: colorScheme.onSurface)),
+                        subtitle: Text(s.registerNumber, style: TextStyle(color: colorScheme.onSurfaceVariant)),
+                        trailing: Icon(Icons.add_circle_outline, color: colorScheme.primary),
                         onTap: () async {
                           Navigator.pop(ctx);
                           await _classRepo.assignStudentToClass(_class.id!, s.id!);
@@ -219,15 +223,15 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: Text(_class.name),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -237,27 +241,27 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.navySurface,
+                      color: colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _class.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.people, size: 16, color: AppColors.primaryLight),
+                            Icon(Icons.people, size: 16, color: colorScheme.primary),
                             const SizedBox(width: 6),
-                            Text("${_teachers.length} Teachers", style: const TextStyle(color: Colors.white70)),
+                            Text("${_teachers.length} Teachers", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                             const SizedBox(width: 16),
-                            const Icon(Icons.school, size: 16, color: AppColors.primaryLight),
+                            Icon(Icons.school, size: 16, color: colorScheme.primary),
                             const SizedBox(width: 6),
-                            Text("${_students.length} Students", style: const TextStyle(color: Colors.white70)),
+                            Text("${_students.length} Students", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                           ],
                         ),
                       ],
@@ -271,11 +275,11 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                     children: [
                       Text(
                         "Assigned Teachers (${_teachers.length})",
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         onPressed: _showAddTeacherDialog,
-                        icon: const Icon(Icons.add, color: AppColors.primaryLight),
+                        icon: Icon(Icons.add, color: colorScheme.primary),
                         tooltip: "Assign Teacher",
                       ),
                     ],
@@ -284,13 +288,13 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                   ..._teachers.map((t) => Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
-                          color: AppColors.navySurface,
+                          color: colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         child: ListTile(
-                          title: Text(t.displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                          subtitle: Text("@${t.username}", style: const TextStyle(color: AppColors.textSecondary)),
+                          title: Text(t.displayName, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600)),
+                          subtitle: Text("@${t.username}", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                           trailing: IconButton(
                             icon: const Icon(Icons.remove_circle_outline, color: AppColors.absent, size: 20),
                             onPressed: () => _removeTeacher(t),
@@ -306,32 +310,32 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                     children: [
                       Text(
                         "Enrolled Students (${_students.length})",
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         onPressed: _showAddStudentDialog,
-                        icon: const Icon(Icons.add, color: AppColors.primaryLight),
+                        icon: Icon(Icons.add, color: colorScheme.primary),
                         tooltip: "Enroll Student",
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (_students.isEmpty)
-                    const Text("No students enrolled in this class yet.", style: TextStyle(color: AppColors.textSecondary))
+                    Text("No students enrolled in this class yet.", style: TextStyle(color: colorScheme.onSurfaceVariant))
                   else
                     ..._students.map((s) => Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.navySurface,
+                            color: colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                           ),
                           child: ListTile(
-                            title: Text(s.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            title: Text(s.name, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w600)),
                             subtitle: Text(
                               "${s.registerNumber} • ${s.hasFaceEnrolled ? 'Face Enrolled' : 'No Face'}",
                               style: TextStyle(
-                                color: s.hasFaceEnrolled ? AppColors.present : AppColors.textMuted,
+                                color: s.hasFaceEnrolled ? AppColors.present : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                 fontSize: 12,
                               ),
                             ),
@@ -350,35 +354,35 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
 
                   // Historical Sessions for this Class
                   if (_sessions.isNotEmpty) ...[
-                    const Text(
+                    Text(
                       "Attendance History",
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     ..._sessions.map((sess) => Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.navySurface,
+                            color: colorScheme.surfaceContainer,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                           ),
                           child: ListTile(
-                            title: Text(sess.attendanceDate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            title: Text(sess.attendanceDate, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                             subtitle: Text(
                               "${sess.teacherName ?? 'Teacher'} • ${sess.presentCount}/${sess.totalCount} Present",
-                              style: const TextStyle(color: AppColors.textSecondary),
+                              style: TextStyle(color: colorScheme.onSurfaceVariant),
                             ),
                             trailing: Chip(
                               label: Text(
                                 sess.status.toUpperCase(),
                                 style: TextStyle(
-                                  color: sess.isActive ? AppColors.present : Colors.white70,
+                                  color: sess.isActive ? AppColors.present : colorScheme.onSurfaceVariant,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              backgroundColor: sess.isActive ? AppColors.present.withValues(alpha: 0.15) : AppColors.navySurfaceElevated,
-                              side: BorderSide(color: AppColors.borderSubtle),
+                              backgroundColor: sess.isActive ? AppColors.present.withValues(alpha: 0.15) : colorScheme.surfaceContainerHigh,
+                              side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                             ),
                             onTap: () => Navigator.push(
                               context,

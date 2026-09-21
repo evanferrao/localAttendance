@@ -6,6 +6,7 @@ import 'package:face_att/pages/home_screen.dart';
 import 'package:face_att/services/attendance_export_service.dart';
 import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AttendanceSummaryScreen extends StatefulWidget {
   final int sessionId;
@@ -24,6 +25,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   List<AttendanceRecord> _records = [];
   bool _isLoading = true;
   bool _isExporting = false;
+  String? _exportingFormat;
   bool _showDetails = false;
 
   @override
@@ -46,54 +48,101 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     }
   }
 
-  Future<void> _exportAndShare() async {
-    setState(() => _isExporting = true);
+  Future<void> _exportAndShare({required String format}) async {
+    final isCsv = format.toLowerCase() == 'csv';
+    setState(() {
+      _isExporting = true;
+      _exportingFormat = format.toLowerCase();
+    });
     try {
-      final file = await _exportService.exportSessionToFile(widget.sessionId);
+      final file = isCsv
+          ? await _exportService.exportSessionToCsvFile(widget.sessionId)
+          : await _exportService.exportSessionToFile(widget.sessionId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.greenAccent.shade700,
-          content: Text("Saved JSON to: ${file.path}"),
+          backgroundColor: AppColors.present,
+          content: Text("Saved ${format.toUpperCase()} to: ${file.path}"),
           action: SnackBarAction(
             label: "Share",
-            textColor: Colors.black,
-            onPressed: () => _exportService.shareSessionJson(widget.sessionId),
+            textColor: Colors.white,
+            onPressed: () => isCsv
+                ? _exportService.shareSessionCsv(widget.sessionId)
+                : _exportService.shareSessionJson(widget.sessionId),
           ),
         ),
       );
-      await _exportService.shareSessionJson(widget.sessionId);
+      if (isCsv) {
+        await _exportService.shareSessionCsv(widget.sessionId);
+      } else {
+        await _exportService.shareSessionJson(widget.sessionId);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: Colors.redAccent, content: Text("Export failed: $e")),
+        SnackBar(backgroundColor: AppColors.absent, content: Text("Export failed: $e")),
       );
     } finally {
-      if (mounted) setState(() => _isExporting = false);
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+          _exportingFormat = null;
+        });
+      }
     }
   }
 
-  Future<void> _viewRawJson() async {
-    final jsonStr = await _exportService.exportSessionAsJsonString(widget.sessionId);
+  Future<void> _viewPreview({required String format}) async {
+    final isCsv = format.toLowerCase() == 'csv';
+    final contentStr = isCsv
+        ? await _exportService.exportSessionAsCsvString(widget.sessionId)
+        : await _exportService.exportSessionAsJsonString(widget.sessionId);
     if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text("Exported JSON", style: TextStyle(color: Colors.white)),
+        backgroundColor: colorScheme.surfaceContainer,
+        title: Row(
+          children: [
+            Icon(isCsv ? Icons.table_chart : Icons.code, color: colorScheme.primary, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              "Exported ${format.toUpperCase()}",
+              style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
+            ),
+          ],
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: Text(
-              jsonStr,
-              style: const TextStyle(color: Colors.greenAccent, fontFamily: 'monospace', fontSize: 12),
+            child: SelectableText(
+              contentStr,
+              style: TextStyle(color: colorScheme.primary, fontFamily: 'monospace', fontSize: 12),
             ),
           ),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: contentStr));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.present,
+                    content: Text("${format.toUpperCase()} copied to clipboard!"),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text("Copy"),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Close", style: TextStyle(color: Colors.white70)),
+            child: Text("Close", style: TextStyle(color: colorScheme.primary)),
           ),
         ],
       ),
@@ -112,10 +161,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.navyBackground,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primaryLight)),
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
       );
     }
 
@@ -123,10 +173,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     final absentList = _records.where((r) => r.isAbsent).toList();
 
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Attendance Completed"),
         automaticallyImplyLeading: false,
       ),
@@ -139,15 +187,15 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             Center(
               child: CircleAvatar(
                 radius: 36,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                child: const Icon(Icons.check_circle, size: 50, color: AppColors.primaryLight),
+                backgroundColor: colorScheme.primaryContainer,
+                child: Icon(Icons.check_circle, size: 50, color: colorScheme.primary),
               ),
             ),
             const SizedBox(height: 16),
-            const Center(
+            Center(
               child: Text(
                 "Attendance Completed",
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(color: colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 24),
@@ -156,28 +204,28 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.navySurface,
+                color: colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
               ),
               child: Column(
                 children: [
-                  _statRow("Class", _session?.className ?? "Class #${_session?.classId}"),
-                  const Divider(color: Colors.white12, height: 20),
-                  _statRow("Teacher", _session?.teacherName ?? "Teacher #${_session?.teacherId}"),
-                  const Divider(color: Colors.white12, height: 20),
-                  _statRow("Date", _session?.attendanceDate ?? "--"),
-                  const Divider(color: Colors.white12, height: 20),
-                  _statRow("Started", _formatTime(_session?.startedAt)),
-                  const Divider(color: Colors.white12, height: 20),
-                  _statRow("Ended", _formatTime(_session?.endedAt)),
-                  const Divider(color: Colors.white12, height: 20),
+                  _statRow("Class", _session?.className ?? "Class #${_session?.classId}", colorScheme),
+                  Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
+                  _statRow("Teacher", _session?.teacherName ?? "Teacher #${_session?.teacherId}", colorScheme),
+                  Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
+                  _statRow("Date", _session?.attendanceDate ?? "--", colorScheme),
+                  Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
+                  _statRow("Started", _formatTime(_session?.startedAt), colorScheme),
+                  Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
+                  _statRow("Ended", _formatTime(_session?.endedAt), colorScheme),
+                  Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _countBadge("Present", presentList.length, Colors.greenAccent),
-                      _countBadge("Absent", absentList.length, Colors.redAccent),
-                      _countBadge("Total", _records.length, Colors.white70),
+                      _countBadge("Present", presentList.length, AppColors.present, colorScheme),
+                      _countBadge("Absent", absentList.length, AppColors.absent, colorScheme),
+                      _countBadge("Total", _records.length, colorScheme.onSurfaceVariant, colorScheme),
                     ],
                   ),
                 ],
@@ -188,11 +236,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             // Toggle Details List
             OutlinedButton.icon(
               onPressed: () => setState(() => _showDetails = !_showDetails),
-              icon: Icon(_showDetails ? Icons.expand_less : Icons.expand_more, color: Colors.greenAccent),
+              icon: Icon(_showDetails ? Icons.expand_less : Icons.expand_more, color: colorScheme.primary),
               label: Text(_showDetails ? "Hide Student List" : "View Attendance Details (${_records.length})"),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white24),
+                foregroundColor: colorScheme.primary,
+                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -202,9 +250,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             if (_showDetails) ...[
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A2E),
+                  color: colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   children: _records.map((r) {
@@ -212,18 +260,18 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                       dense: true,
                       leading: Icon(
                         r.isPresent ? Icons.check_circle : Icons.cancel,
-                        color: r.isPresent ? Colors.greenAccent : Colors.redAccent,
+                        color: r.isPresent ? AppColors.present : AppColors.absent,
                         size: 20,
                       ),
-                      title: Text(r.studentName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      title: Text(r.studentName, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                       subtitle: Text(
                         "${r.studentRegisterNumber}${r.attendanceTime != null ? ' • ${_formatTime(r.attendanceTime)}' : ''}",
-                        style: const TextStyle(color: Colors.white54),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                       trailing: Text(
                         r.status.toUpperCase(),
                         style: TextStyle(
-                          color: r.isPresent ? Colors.greenAccent : Colors.redAccent,
+                          color: r.isPresent ? AppColors.present : AppColors.absent,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -236,29 +284,68 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             ],
 
             // Action Buttons
-            ElevatedButton.icon(
-              onPressed: _isExporting ? null : _exportAndShare,
-              icon: const Icon(Icons.share),
-              label: _isExporting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text("Export & Share JSON", style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isExporting ? null : () => _exportAndShare(format: 'csv'),
+                    icon: _isExporting && _exportingFormat == 'csv'
+                        ? SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
+                          )
+                        : const Icon(Icons.table_chart),
+                    label: const Text("Export CSV", style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isExporting ? null : () => _exportAndShare(format: 'json'),
+                    icon: _isExporting && _exportingFormat == 'json'
+                        ? SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary),
+                          )
+                        : const Icon(Icons.code),
+                    label: const Text("Export JSON", style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                      side: BorderSide(color: colorScheme.primary, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
 
-            TextButton.icon(
-              onPressed: _viewRawJson,
-              icon: const Icon(Icons.code, color: Colors.white70, size: 18),
-              label: const Text("View JSON Preview", style: TextStyle(color: Colors.white70)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _viewPreview(format: 'csv'),
+                  icon: Icon(Icons.table_view, color: colorScheme.primary, size: 18),
+                  label: Text("Preview CSV", style: TextStyle(color: colorScheme.primary)),
+                ),
+                const SizedBox(width: 8),
+                Text("•", style: TextStyle(color: colorScheme.outlineVariant)),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () => _viewPreview(format: 'json'),
+                  icon: Icon(Icons.code, color: colorScheme.primary, size: 18),
+                  label: Text("Preview JSON", style: TextStyle(color: colorScheme.primary)),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
 
@@ -271,8 +358,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white12,
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.surfaceContainerHigh,
+                foregroundColor: colorScheme.onSurface,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -284,17 +371,17 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     );
   }
 
-  Widget _statRow(String label, String value) {
+  Widget _statRow(String label, String value, ColorScheme colorScheme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 14)),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14)),
+        Text(value, style: TextStyle(color: colorScheme.onSurface, fontSize: 15, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _countBadge(String label, int count, Color color) {
+  Widget _countBadge(String label, int count, Color color, ColorScheme colorScheme) {
     return Column(
       children: [
         Text(
@@ -302,7 +389,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(label, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
       ],
     );
   }

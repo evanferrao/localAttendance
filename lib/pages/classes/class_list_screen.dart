@@ -2,7 +2,6 @@ import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/models/class_model.dart';
 import 'package:face_att/pages/classes/class_detail_screen.dart';
 import 'package:face_att/pages/classes/create_class_screen.dart';
-import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class ClassListScreen extends StatefulWidget {
@@ -44,31 +43,31 @@ class _ClassListScreenState extends State<ClassListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Manage Classes"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : _classes.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.class_outlined, size: 64, color: Colors.white30),
+                      Icon(Icons.class_outlined, size: 64, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                       const SizedBox(height: 16),
-                      const Text("No classes found", style: TextStyle(color: Colors.white70, fontSize: 18)),
+                      Text("No classes found", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 18)),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: _addClass,
                         icon: const Icon(Icons.add),
                         label: const Text("Create Class"),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
                         ),
                       ),
                     ],
@@ -82,29 +81,29 @@ class _ClassListScreenState extends State<ClassListScreen> {
                     final c = _classes[index];
                     return Container(
                       decoration: BoxDecoration(
-                        color: AppColors.navySurface,
+                        color: colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         leading: CircleAvatar(
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                          foregroundColor: AppColors.primaryLight,
+                          backgroundColor: colorScheme.primaryContainer,
+                          foregroundColor: colorScheme.onPrimaryContainer,
                           child: const Icon(Icons.class_),
                         ),
                         title: Text(
                           c.name,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             "Teachers: ${c.teachersCount}   •   Students: ${c.studentsCount}",
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                           ),
                         ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+                        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
                         onTap: () async {
                           await Navigator.push(
                             context,
@@ -118,8 +117,8 @@ class _ClassListScreenState extends State<ClassListScreen> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addClass,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         icon: const Icon(Icons.add),
         label: const Text("Create Class", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

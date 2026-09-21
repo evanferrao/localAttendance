@@ -196,6 +196,20 @@ class FacePreprocessParams {
   });
 }
 
+class MultiFacePreprocessParams {
+  final Uint8List imageBytes;
+  final List<Rect?> boundingBoxes;
+  final List<List<Point2D>?> landmarksList;
+  final int inputSize;
+
+  MultiFacePreprocessParams({
+    required this.imageBytes,
+    required this.boundingBoxes,
+    required this.landmarksList,
+    this.inputSize = 112,
+  });
+}
+
 class ImageConverter {
   /// Entry point for running heavy image decoding and landmark alignment in a background isolate (compute).
   /// Frees the Flutter UI isolate from 300-800ms of synchronous JPEG decoding and pixel iteration.
@@ -210,6 +224,26 @@ class ImageConverter {
       boundingBox: params.boundingBox,
       inputSize: params.inputSize,
     );
+  }
+
+  /// Batch preprocess multiple faces from a single image in a background isolate.
+  /// Decodes image once and applies landmark alignment/cropping for each face.
+  static List<List<double>> preprocessMultipleFacesInIsolate(MultiFacePreprocessParams params) {
+    final decoded = img.decodeImage(params.imageBytes);
+    if (decoded == null) {
+      throw Exception("Failed to decode image bytes in isolate");
+    }
+    final results = <List<double>>[];
+    for (int i = 0; i < params.boundingBoxes.length; i++) {
+      final flat = processImageForArcFace(
+        decoded,
+        landmarks: params.landmarksList[i],
+        boundingBox: params.boundingBoxes[i],
+        inputSize: params.inputSize,
+      );
+      results.add(flat);
+    }
+    return results;
   }
   static CropNormalizeArgs buildArgs(CameraImage image, Face face, int inputSize, int sensorOrientation) {
     final Uint8List nv21;

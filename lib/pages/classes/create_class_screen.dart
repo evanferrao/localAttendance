@@ -55,8 +55,7 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
       setState(() {
         _allTeachers = teachers;
         _allStudents = students;
-        // Pre-select first teacher if available
-        if (teachers.isNotEmpty && _selectedTeacherIds.isEmpty) {
+        if (teachers.isNotEmpty && _selectedTeacherIds.isEmpty && teachers.first.id != null) {
           _selectedTeacherIds.add(teachers.first.id!);
         }
         _isLoading = false;
@@ -135,16 +134,16 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: Text(widget.isFirstRun ? "Create Your First Class" : "Create Class"),
         automaticallyImplyLeading: !widget.isFirstRun,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -157,23 +156,23 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                         padding: const EdgeInsets.all(20),
                         margin: const EdgeInsets.only(bottom: 24),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
+                          color: colorScheme.primaryContainer.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
+                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
-                        child: const Column(
+                        child: Column(
                           children: [
-                            Icon(Icons.waving_hand, color: AppColors.accentCyan, size: 36),
-                            SizedBox(height: 10),
+                            Icon(Icons.waving_hand, color: colorScheme.primary, size: 36),
+                            const SizedBox(height: 10),
                             Text(
                               "Welcome to Face Attendance",
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
                               "No classes have been created yet.\nCreate your first class to get started.",
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                             ),
                           ],
                         ),
@@ -184,37 +183,37 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.navySurface,
+                        color: colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "Class Information",
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _nameController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: colorScheme.onSurface),
                             decoration: InputDecoration(
                               labelText: "Class Name",
-                              labelStyle: const TextStyle(color: AppColors.textSecondary),
+                              labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                               hintText: "e.g. B.Tech CSE - Section A",
-                              hintStyle: const TextStyle(color: AppColors.textMuted),
-                              prefixIcon: const Icon(Icons.class_outlined, color: AppColors.primaryLight),
+                              hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                              prefixIcon: Icon(Icons.class_outlined, color: colorScheme.primary),
                               filled: true,
-                              fillColor: Colors.white.withValues(alpha: 0.05),
+                              fillColor: colorScheme.surfaceContainerHighest,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: AppColors.borderSubtle),
+                                borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: AppColors.primaryLight),
+                                borderSide: BorderSide(color: colorScheme.primary, width: 2),
                               ),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty) ? "Class name is required" : null,
@@ -228,9 +227,9 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.navySurface,
+                        color: colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,16 +237,16 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   "Teachers *",
-                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               TextButton.icon(
                                 onPressed: _createNewTeacher,
-                                icon: const Icon(Icons.add, size: 16, color: AppColors.primaryLight),
-                                label: const Text("New Teacher", style: TextStyle(color: AppColors.primaryLight)),
+                                icon: Icon(Icons.add, size: 16, color: colorScheme.primary),
+                                label: Text("New Teacher", style: TextStyle(color: colorScheme.primary)),
                               ),
                             ],
                           ),
@@ -263,10 +262,10 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                                 final isSelected = _selectedTeacherIds.contains(t.id);
                                 return CheckboxListTile(
                                   value: isSelected,
-                                  activeColor: AppColors.primary,
-                                  checkColor: Colors.white,
-                                  title: Text(t.displayName, style: const TextStyle(color: Colors.white)),
-                                  subtitle: Text("@${t.username}", style: const TextStyle(color: AppColors.textSecondary)),
+                                  activeColor: colorScheme.primary,
+                                  checkColor: colorScheme.onPrimary,
+                                  title: Text(t.displayName, style: TextStyle(color: colorScheme.onSurface)),
+                                  subtitle: Text("@${t.username}", style: TextStyle(color: colorScheme.onSurfaceVariant)),
                                   onChanged: (bool? val) {
                                     setState(() {
                                       if (val == true) {
@@ -288,9 +287,9 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppColors.navySurface,
+                        color: colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,21 +300,21 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                               Expanded(
                                 child: Text(
                                   "Students (${_selectedStudentIds.length} selected)",
-                                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               TextButton.icon(
                                 onPressed: _createNewStudent,
-                                icon: const Icon(Icons.add, size: 16, color: AppColors.primaryLight),
-                                label: const Text("New Student", style: TextStyle(color: AppColors.primaryLight)),
+                                icon: Icon(Icons.add, size: 16, color: colorScheme.primary),
+                                label: Text("New Student", style: TextStyle(color: colorScheme.primary)),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           if (_allStudents.isEmpty)
-                            const Text(
+                            Text(
                               "No students exist yet. Click above to add students now or add them later.",
-                              style: TextStyle(color: AppColors.textSecondary),
+                              style: TextStyle(color: colorScheme.onSurfaceVariant),
                             )
                           else
                             ConstrainedBox(
@@ -326,13 +325,13 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                                   final isSelected = _selectedStudentIds.contains(s.id);
                                   return CheckboxListTile(
                                     value: isSelected,
-                                    activeColor: AppColors.primary,
-                                    checkColor: Colors.white,
-                                    title: Text(s.name, style: const TextStyle(color: Colors.white)),
+                                    activeColor: colorScheme.primary,
+                                    checkColor: colorScheme.onPrimary,
+                                    title: Text(s.name, style: TextStyle(color: colorScheme.onSurface)),
                                     subtitle: Text(
                                       "${s.registerNumber} • ${s.hasFaceEnrolled ? 'Face Enrolled' : 'No Face'}",
                                       style: TextStyle(
-                                        color: s.hasFaceEnrolled ? AppColors.present : AppColors.textMuted,
+                                        color: s.hasFaceEnrolled ? AppColors.present : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -358,16 +357,16 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     ElevatedButton(
                       onPressed: _isSaving ? null : _saveClass,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: _isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
                             )
                           : const Text(
                               "Create Class",

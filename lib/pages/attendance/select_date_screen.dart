@@ -4,7 +4,6 @@ import 'package:face_att/models/class_model.dart';
 import 'package:face_att/models/teacher.dart';
 import 'package:face_att/pages/attendance/attendance_scanner_screen.dart';
 import 'package:face_att/services/attendance_service.dart';
-import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class SelectDateScreen extends StatefulWidget {
@@ -71,20 +70,6 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.navySurface,
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: AppColors.navySurface,
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -125,15 +110,15 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Attendance Date"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -142,30 +127,30 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.navySurface,
+                      color: colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Class", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        Text("Class", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                         const SizedBox(height: 4),
                         Text(
                           widget.classModel.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 16),
 
-                        const Text("Teacher", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        Text("Teacher", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                         const SizedBox(height: 4),
                         Text(
                           widget.teacher.displayName,
-                          style: const TextStyle(color: AppColors.primaryLight, fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: colorScheme.primary, fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
 
-                        Divider(color: AppColors.borderSubtle),
+                        Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
                         const SizedBox(height: 12),
 
                         Row(
@@ -174,11 +159,11 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text("Selected Date", style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                                Text("Selected Date", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                                 const SizedBox(height: 4),
                                 Text(
                                   _displayDateString,
-                                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -187,8 +172,8 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
                               icon: const Icon(Icons.calendar_today, size: 18),
                               label: const Text("Change"),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.navySurfaceHighlight,
-                                foregroundColor: Colors.white,
+                                backgroundColor: colorScheme.surfaceContainerHigh,
+                                foregroundColor: colorScheme.onSurface,
                               ),
                             ),
                           ],
@@ -202,18 +187,18 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: colorScheme.primaryContainer.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+                        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, color: AppColors.primaryLight),
+                          Icon(Icons.info_outline, color: colorScheme.primary),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
                               "An active session (#${_existingActiveSession!.id}) already exists for this date. Starting attendance will resume the session.",
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
                             ),
                           ),
                         ],
@@ -225,16 +210,16 @@ class _SelectDateScreenState extends State<SelectDateScreen> {
                   ElevatedButton(
                     onPressed: _isStarting ? null : _startAttendance,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _isStarting
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
                           )
                         : Text(
                             _existingActiveSession != null ? "Resume Attendance" : "Start Attendance",

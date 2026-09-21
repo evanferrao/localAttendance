@@ -40,7 +40,7 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.absent,
             content: Text("Teacher account not found"),
           ),
         );
@@ -52,7 +52,7 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.absent,
             content: Text("Invalid password"),
           ),
         );
@@ -69,7 +69,7 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: Colors.redAccent, content: Text("Login error: $e")),
+        SnackBar(backgroundColor: AppColors.absent, content: Text("Login error: $e")),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -78,11 +78,11 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Teacher Authentication"),
       ),
       body: Center(
@@ -97,45 +97,50 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.navySurface,
+                    color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                   ),
                   child: Column(
                     children: [
                       CircleAvatar(
                         radius: 36,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                        child: const Icon(Icons.lock_person, size: 40, color: AppColors.primaryLight),
+                        backgroundColor: colorScheme.primaryContainer,
+                        foregroundColor: colorScheme.onPrimaryContainer,
+                        child: const Icon(Icons.lock_person, size: 40),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         "Teacher Login",
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: colorScheme.onSurface, fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         "Sign in to take classroom attendance",
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                       ),
                       const SizedBox(height: 24),
 
                       // Username
                       TextFormField(
                         controller: _usernameController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: InputDecoration(
                           labelText: "Username",
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                           hintText: "e.g. teacher",
-                          hintStyle: const TextStyle(color: Colors.white30),
-                          prefixIcon: const Icon(Icons.person, color: AppColors.primaryLight),
+                          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                          prefixIcon: Icon(Icons.person, color: colorScheme.primary),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.05),
+                          fillColor: colorScheme.surfaceContainerHighest,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+                            borderSide: BorderSide(color: colorScheme.primary, width: 2),
                           ),
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty) ? "Username is required" : null,
@@ -146,24 +151,28 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: InputDecoration(
                           labelText: "Password",
-                          labelStyle: const TextStyle(color: Colors.white70),
-                          prefixIcon: const Icon(Icons.lock, color: AppColors.primaryLight),
+                          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                          prefixIcon: Icon(Icons.lock, color: colorScheme.primary),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.white54,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.05),
+                          fillColor: colorScheme.surfaceContainerHighest,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                          ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+                            borderSide: BorderSide(color: colorScheme.primary, width: 2),
                           ),
                         ),
                         validator: (v) => (v == null || v.isEmpty) ? "Password is required" : null,
@@ -176,16 +185,16 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
                         )
                       : const Text(
                           "Login",

@@ -76,11 +76,11 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Add Teacher"),
       ),
       body: SingleChildScrollView(
@@ -93,40 +93,40 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.navySurface,
+                  color: colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.person_add_alt_1, size: 50, color: AppColors.primaryLight),
+                    Icon(Icons.person_add_alt_1, size: 50, color: colorScheme.primary),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       "Teacher Information",
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 20),
 
                     // Display Name
                     TextFormField(
                       controller: _displayNameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Display Name",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "e.g. Dr. Jane Smith",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.badge, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.badge, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Display name is required" : null,
@@ -136,23 +136,23 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
                     // Username
                     TextFormField(
                       controller: _usernameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Username",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "e.g. jsmith",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.alternate_email, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.alternate_email, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Username is required" : null,
@@ -163,28 +163,28 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Password",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
-                        prefixIcon: const Icon(Icons.lock_outline, color: AppColors.primaryLight),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                        prefixIcon: Icon(Icons.lock_outline, color: colorScheme.primary),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                            color: Colors.white54,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.length < 4) ? "Password must be at least 4 chars" : null,
@@ -197,16 +197,16 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
                       )
                     : const Text(
                         "Create Teacher",

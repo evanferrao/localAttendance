@@ -125,15 +125,15 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: Text(_student.name),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -143,9 +143,9 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.navySurface,
+                      color: colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,8 +154,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                           children: [
                             CircleAvatar(
                               radius: 30,
-                              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                              foregroundColor: AppColors.primaryLight,
+                              backgroundColor: colorScheme.primaryContainer,
+                              foregroundColor: colorScheme.onPrimaryContainer,
                               child: const Icon(Icons.school, size: 32),
                             ),
                             const SizedBox(width: 16),
@@ -165,23 +165,23 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                 children: [
                                   Text(
                                     _student.name,
-                                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     _student.registerNumber,
-                                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 15, fontWeight: FontWeight.w600),
+                                    style: TextStyle(color: colorScheme.primary, fontSize: 15, fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                        const Divider(color: Colors.white12, height: 32),
+                        Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 32),
 
-                        _infoRow(Icons.email_outlined, _student.email),
+                        _infoRow(Icons.email_outlined, _student.email, colorScheme),
                         const SizedBox(height: 12),
-                        _infoRow(Icons.phone_outlined, _student.phone),
+                        _infoRow(Icons.phone_outlined, _student.phone, colorScheme),
                         const SizedBox(height: 12),
 
                         Row(
@@ -210,29 +210,29 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.navySurface,
+                      color: colorScheme.surfaceContainer,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "Enrolled Classes",
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
                         if (_classes.isEmpty)
-                          const Text("Not enrolled in any classes yet.", style: TextStyle(color: AppColors.textSecondary))
+                          Text("Not enrolled in any classes yet.", style: TextStyle(color: colorScheme.onSurfaceVariant))
                         else
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: _classes.map((c) {
                               return Chip(
-                                backgroundColor: AppColors.navySurfaceElevated,
-                                side: BorderSide(color: AppColors.borderSubtle),
-                                label: Text(c.name, style: const TextStyle(color: Colors.white70)),
+                                backgroundColor: colorScheme.surfaceContainerHigh,
+                                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                                label: Text(c.name, style: TextStyle(color: colorScheme.onSurface)),
                               );
                             }).toList(),
                           ),
@@ -250,8 +250,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -263,8 +263,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                     icon: const Icon(Icons.photo_library),
                     label: const Text("Enroll Face from Photo"),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(color: AppColors.border),
+                      foregroundColor: colorScheme.primary,
+                      side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -275,12 +275,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
     );
   }
 
-  Widget _infoRow(IconData icon, String text) {
+  Widget _infoRow(IconData icon, String text, ColorScheme colorScheme) {
     return Row(
       children: [
-        Icon(icon, color: AppColors.textMuted, size: 18),
+        Icon(icon, color: colorScheme.onSurfaceVariant, size: 18),
         const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(color: Colors.white70))),
+        Expanded(child: Text(text, style: TextStyle(color: colorScheme.onSurfaceVariant))),
       ],
     );
   }

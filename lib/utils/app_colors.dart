@@ -1,30 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Centralized Navy Blue Design System Palette
+/// Modern Design System Palette (Material 3 Monet Dynamic Theming)
 class AppColors {
-  // Deep Navy Backgrounds & Surfaces
-  static const Color navyBackground = Color(0xFF0A1128);
-  static const Color navySurface = Color(0xFF132247);
-  static const Color navySurfaceElevated = Color(0xFF1B2E5B);
-  static const Color navySurfaceHighlight = Color(0xFF243B73);
-
-  // Primary Navy / Royal / Sapphire Accents
-  static const Color primary = Color(0xFF2563EB); // Vibrant Royal/Navy Blue
-  static const Color primaryLight = Color(0xFF60A5FA); // Ice/Sky Navy Accent
-  static const Color primaryDark = Color(0xFF1D4ED8); // Deep Cobalt Navy
-  static const Color accentCyan = Color(0xFF38BDF8); // Electric Cyan-Blue Accent
-
-  // Borders & Dividers
-  static final Color border = const Color(0xFF3B82F6).withValues(alpha: 0.25);
-  static final Color borderSubtle = Colors.white.withValues(alpha: 0.08);
-
-  // Functional / Status Colors
+  // Functional / Status Colors (Consistent across all themes)
   static const Color present = Color(0xFF10B981); // Emerald Present
   static const Color absent = Color(0xFFEF4444); // Red Absent
   static const Color warning = Color(0xFFF59E0B); // Amber Warning
 
-  // Text Colors
-  static const Color textPrimary = Colors.white;
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  // Context-aware dynamic Monet accessors
+  static Color primaryOf(BuildContext context) => Theme.of(context).colorScheme.primary;
+  static Color onPrimaryOf(BuildContext context) => Theme.of(context).colorScheme.onPrimary;
+  static Color primaryContainerOf(BuildContext context) => Theme.of(context).colorScheme.primaryContainer;
+  static Color onPrimaryContainerOf(BuildContext context) => Theme.of(context).colorScheme.onPrimaryContainer;
+
+  static Color surfaceOf(BuildContext context) => Theme.of(context).colorScheme.surface;
+  static Color surfaceContainerOf(BuildContext context) => Theme.of(context).colorScheme.surfaceContainer;
+  static Color surfaceContainerHighOf(BuildContext context) => Theme.of(context).colorScheme.surfaceContainerHigh;
+  static Color surfaceContainerHighestOf(BuildContext context) => Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  static Color onSurfaceOf(BuildContext context) => Theme.of(context).colorScheme.onSurface;
+  static Color onSurfaceVariantOf(BuildContext context) => Theme.of(context).colorScheme.onSurfaceVariant;
+
+  static Color borderOf(BuildContext context) => Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5);
+  static Color borderSubtleOf(BuildContext context) => Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.25);
+}
+
+/// Extension on BuildContext for quick, elegant access to Material 3 Monet theme tokens
+extension AppThemeExtension on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  ColorScheme get colorScheme => Theme.of(this).colorScheme;
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
 }

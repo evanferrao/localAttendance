@@ -48,4 +48,33 @@ void main() {
       expect(tensor[i], lessThanOrEqualTo(1.0));
     }
   });
+
+  test('ImageConverter.preprocessMultipleFacesInIsolate processes multiple faces in single pass', () async {
+    final imageBytes = await File('test/sample_face_112.png').readAsBytes();
+    const landmarks = [
+      Point2D(38.2946, 51.6963),
+      Point2D(73.5318, 51.5014),
+      Point2D(56.0252, 71.7366),
+      Point2D(41.5493, 92.3655),
+      Point2D(70.7299, 92.2041),
+    ];
+    final params = MultiFacePreprocessParams(
+      imageBytes: imageBytes,
+      boundingBoxes: [null, null],
+      landmarksList: [landmarks, null],
+      inputSize: 112,
+    );
+
+    final tensors = await compute(ImageConverter.preprocessMultipleFacesInIsolate, params);
+
+    expect(tensors.length, 2);
+    expect(tensors[0].length, 112 * 112 * 3);
+    expect(tensors[1].length, 112 * 112 * 3);
+    for (int i = 0; i < 50; i++) {
+      expect(tensors[0][i], greaterThanOrEqualTo(-1.0));
+      expect(tensors[0][i], lessThanOrEqualTo(1.0));
+      expect(tensors[1][i], greaterThanOrEqualTo(-1.0));
+      expect(tensors[1][i], lessThanOrEqualTo(1.0));
+    }
+  });
 }

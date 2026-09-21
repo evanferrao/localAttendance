@@ -169,9 +169,9 @@ class MLService {
     throw Exception("Debug photo 23BRS1150_PIYUSH_R_SAINI.jpeg not found");
   }
 
-  /// Detect face bounding box and 5 facial landmarks on image bytes using Google ML Kit.
+  /// Detect all face bounding boxes and 5 facial landmarks on image bytes using Google ML Kit.
   /// Features rotation-aware fallback so front-camera photos (oriented at 270°/90°) are detected reliably.
-  Future<DetectedFaceData?> detectFaceOnImageBytes(
+  Future<List<DetectedFaceData>> detectAllFacesOnImageBytes(
     Uint8List imageBytes, {
     int? sensorOrientation,
   }) async {
@@ -179,7 +179,7 @@ class MLService {
     try {
       final detector = faceDetector;
       final tempDir = Directory.systemTemp;
-      tempFile = File('${tempDir.path}/face_${DateTime.now().microsecondsSinceEpoch}.jpg');
+      tempFile = File('${tempDir.path}/faces_${DateTime.now().microsecondsSinceEpoch}.jpg');
       await tempFile.writeAsBytes(imageBytes);
 
       // Attempt 1: Direct detection on captured image
@@ -187,14 +187,15 @@ class MLService {
       var faces = await detector.processImage(inputImage);
 
       if (faces.isNotEmpty) {
-        final largest = faces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
-        final landmarks = extractArcFaceLandmarks(largest);
-        return DetectedFaceData(
-          boundingBox: largest.boundingBox,
-          landmarks: landmarks,
-          mlKitFace: largest,
-          correctedImageBytes: imageBytes,
-        );
+        return faces.map((face) {
+          final landmarks = extractArcFaceLandmarks(face);
+          return DetectedFaceData(
+            boundingBox: face.boundingBox,
+            landmarks: landmarks,
+            mlKitFace: face,
+            correctedImageBytes: imageBytes,
+          );
+        }).toList();
       }
 
       // Attempt 2: If no face detected, handle camera sensor rotation and EXIF orientation
@@ -239,19 +240,20 @@ class MLService {
           faces = await detector.processImage(inputImage);
 
           if (faces.isNotEmpty) {
-            final largest = faces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
-            final landmarks = extractArcFaceLandmarks(largest);
-            return DetectedFaceData(
-              boundingBox: largest.boundingBox,
-              landmarks: landmarks,
-              mlKitFace: largest,
-              correctedImageBytes: rotatedBytes,
-            );
+            return faces.map((face) {
+              final landmarks = extractArcFaceLandmarks(face);
+              return DetectedFaceData(
+                boundingBox: face.boundingBox,
+                landmarks: landmarks,
+                mlKitFace: face,
+                correctedImageBytes: rotatedBytes,
+              );
+            }).toList();
           }
         }
       }
     } catch (e) {
-      debugPrint("Face detection on image error: $e");
+      debugPrint("Multiple face detection on image error: $e");
     } finally {
       if (tempFile != null && tempFile.existsSync()) {
         try {
@@ -259,7 +261,17 @@ class MLService {
         } catch (_) {}
       }
     }
-    return null;
+    return [];
+  }
+
+  /// Detect single face (largest face in frame) on image bytes.
+  Future<DetectedFaceData?> detectFaceOnImageBytes(
+    Uint8List imageBytes, {
+    int? sensorOrientation,
+  }) async {
+    final allFaces = await detectAllFacesOnImageBytes(imageBytes, sensorOrientation: sensorOrientation);
+    if (allFaces.isEmpty) return null;
+    return allFaces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
   }
 
   /// Detect face bounding box on image bytes (legacy helper)
@@ -332,6 +344,28 @@ class MLService {
     );
     final flat = await compute(ImageConverter.preprocessFaceInIsolate, params);
     return _runInference(flat);
+  }
+
+  /// Extract embeddings for multiple detected faces from a single image using a background isolate.
+  Future<List<List<double>>> getMultipleFaceEmbeddings(
+    Uint8List imageBytes,
+    List<DetectedFaceData> faces,
+  ) async {
+    await _ensureInitialized();
+    if (faces.isEmpty) return [];
+
+    final params = MultiFacePreprocessParams(
+      imageBytes: imageBytes,
+      boundingBoxes: faces.map((f) => f.boundingBox).toList(),
+      landmarksList: faces.map((f) => f.landmarks).toList(),
+      inputSize: inputSize,
+    );
+    final flats = await compute(ImageConverter.preprocessMultipleFacesInIsolate, params);
+    final embeddings = <List<double>>[];
+    for (final flat in flats) {
+      embeddings.add(await _runInference(flat));
+    }
+    return embeddings;
   }
 
   /// Get a single L2-normalized 512-d embedding for a face from live camera

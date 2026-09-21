@@ -4,13 +4,19 @@ import 'package:hive_flutter/hive_flutter.dart';
 class HiveBoxes {
   HiveBoxes._();
   static const usersBox = "users_box";
+  static const settingsBox = "settings_box";
   static Box get _box => Hive.box(usersBox);
+  static Box get settings => Hive.box(settingsBox);
 
   static Future<void> initialize() async {
     await Hive.openBox(usersBox);
+    await Hive.openBox(settingsBox);
   }
 
-  static Future<void> clearAllBox() async => await _box.clear();
+  static Future<void> clearAllBox() async {
+    await _box.clear();
+    await settings.clear();
+  }
 }
 
 class LocalDB {

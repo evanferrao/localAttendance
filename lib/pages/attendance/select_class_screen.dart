@@ -2,7 +2,6 @@ import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/models/class_model.dart';
 import 'package:face_att/models/teacher.dart';
 import 'package:face_att/pages/attendance/select_date_screen.dart';
-import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class SelectClassScreen extends StatefulWidget {
@@ -37,15 +36,15 @@ class _SelectClassScreenState extends State<SelectClassScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Select Class"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -53,25 +52,25 @@ class _SelectClassScreenState extends State<SelectClassScreen> {
                   margin: const EdgeInsets.all(20),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.navySurface,
+                    color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                        foregroundColor: AppColors.primaryLight,
+                        backgroundColor: colorScheme.primaryContainer,
+                        foregroundColor: colorScheme.onPrimaryContainer,
                         child: const Icon(Icons.person),
                       ),
                       const SizedBox(width: 14),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("Authenticated Teacher", style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          Text("Authenticated Teacher", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
                           Text(
                             widget.teacher.displayName,
-                            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: colorScheme.onSurface, fontSize: 17, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -82,18 +81,18 @@ class _SelectClassScreenState extends State<SelectClassScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Text(
                     "Your Assigned Classes (${_classes.length})",
-                    style: const TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
                 Expanded(
                   child: _classes.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(24),
                             child: Text(
                               "You are not currently assigned to any classes.\nPlease ask an administrator or assign yourself from the Classes dashboard.",
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white54),
+                              style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
                             ),
                           ),
                         )
@@ -105,29 +104,29 @@ class _SelectClassScreenState extends State<SelectClassScreen> {
                             final c = _classes[index];
                             return Container(
                               decoration: BoxDecoration(
-                                color: AppColors.navySurface,
+                                color: colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border),
+                                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                               ),
                               child: ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                 leading: CircleAvatar(
-                                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                                  foregroundColor: AppColors.primaryLight,
+                                  backgroundColor: colorScheme.primaryContainer,
+                                  foregroundColor: colorScheme.onPrimaryContainer,
                                   child: const Icon(Icons.class_),
                                 ),
                                 title: Text(
                                   c.name,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+                                  style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 17),
                                 ),
                                 subtitle: Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
                                     "${c.studentsCount} students enrolled",
-                                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
                                   ),
                                 ),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.primaryLight),
+                                trailing: Icon(Icons.arrow_forward_ios, size: 16, color: colorScheme.primary),
                                 onTap: () {
                                   Navigator.push(
                                     context,

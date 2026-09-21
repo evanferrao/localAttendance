@@ -5,9 +5,9 @@ import 'package:face_att/models/user.dart';
 import 'package:face_att/pages/attendance/attendance_history_screen.dart';
 import 'package:face_att/pages/attendance/teacher_login_screen.dart';
 import 'package:face_att/pages/classes/class_list_screen.dart';
+import 'package:face_att/pages/settings/settings_screen.dart';
 import 'package:face_att/pages/students/student_list_screen.dart';
 import 'package:face_att/pages/teachers/teacher_list_screen.dart';
-import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -52,11 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text(
           "Face Attendance",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -68,10 +68,20 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: "Refresh Dashboard",
             onPressed: _loadDashboardCounts,
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: "Settings",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -79,6 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   // 1. Classes Card
                   _dashboardCard(
+                    context: context,
                     title: "Classes",
                     countText: "$_classesCount ${_classesCount == 1 ? 'class' : 'classes'}",
                     buttonLabel: "Manage Classes",
@@ -95,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // 2. Teachers Card
                   _dashboardCard(
+                    context: context,
                     title: "Teachers",
                     countText: "$_teachersCount ${_teachersCount == 1 ? 'teacher' : 'teachers'}",
                     buttonLabel: "Manage Teachers",
@@ -111,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // 3. Students Card
                   _dashboardCard(
+                    context: context,
                     title: "Students",
                     countText: "$_studentsCount ${_studentsCount == 1 ? 'student' : 'students'}",
                     buttonLabel: "Manage Students",
@@ -139,11 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 4,
+                      elevation: 2,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -156,14 +169,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         MaterialPageRoute(builder: (_) => const AttendanceHistoryScreen()),
                       );
                     },
-                    icon: const Icon(Icons.history, color: AppColors.primaryLight),
+                    icon: Icon(Icons.history, color: colorScheme.primary),
                     label: const Text(
                       "Attendance History",
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(color: AppColors.border, width: 1.5),
+                      foregroundColor: colorScheme.primary,
+                      side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8), width: 1.5),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -175,18 +188,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _dashboardCard({
+    required BuildContext context,
     required String title,
     required String countText,
     required String buttonLabel,
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.navySurface,
+        color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,8 +210,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                foregroundColor: AppColors.primaryLight,
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
                 child: Icon(icon, size: 22),
               ),
               const SizedBox(width: 14),
@@ -204,11 +220,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Text(
                     countText,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                   ),
                 ],
               ),
@@ -219,10 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: onTap,
-              icon: const Icon(Icons.arrow_forward, size: 16, color: AppColors.primaryLight),
+              icon: Icon(Icons.arrow_forward, size: 16, color: colorScheme.primary),
               label: Text(
                 buttonLabel,
-                style: const TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold),
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
               ),
             ),
           ),

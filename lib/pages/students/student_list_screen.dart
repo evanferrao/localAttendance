@@ -46,31 +46,31 @@ class _StudentListScreenState extends State<StudentListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Manage Students"),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+          ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
           : _students.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.school_outlined, size: 64, color: AppColors.textMuted),
+                      Icon(Icons.school_outlined, size: 64, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                       const SizedBox(height: 16),
-                      const Text("No students found", style: TextStyle(color: Colors.white70, fontSize: 18)),
+                      Text("No students found", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 18)),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: _addStudent,
                         icon: const Icon(Icons.add),
                         label: const Text("Add Student"),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
                         ),
                       ),
                     ],
@@ -84,9 +84,9 @@ class _StudentListScreenState extends State<StudentListScreen> {
                     final student = _students[index];
                     return Container(
                       decoration: BoxDecoration(
-                        color: AppColors.navySurface,
+                        color: colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -101,11 +101,11 @@ class _StudentListScreenState extends State<StudentListScreen> {
                         ),
                         title: Text(
                           student.name,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         subtitle: Text(
                           student.registerNumber,
-                          style: const TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
                         ),
                         trailing: Icon(
                           student.hasFaceEnrolled ? Icons.verified : Icons.warning_amber_rounded,
@@ -125,8 +125,8 @@ class _StudentListScreenState extends State<StudentListScreen> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addStudent,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         icon: const Icon(Icons.add),
         label: const Text("Add Student", style: TextStyle(fontWeight: FontWeight.bold)),
       ),

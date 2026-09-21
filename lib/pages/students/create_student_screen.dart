@@ -177,11 +177,11 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.navyBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
         title: const Text("Add Student"),
       ),
       body: SingleChildScrollView(
@@ -194,40 +194,40 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.navySurface,
+                  color: colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.school, size: 50, color: AppColors.primaryLight),
+                    Icon(Icons.school, size: 50, color: colorScheme.primary),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       "Student Profile",
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 20),
 
                     // Register Number
                     TextFormField(
                       controller: _regNoController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Register Number",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "e.g. 23BRS1150",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.confirmation_number_outlined, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.confirmation_number_outlined, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Register number is required" : null,
@@ -237,23 +237,23 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     // Full Name
                     TextFormField(
                       controller: _nameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Full Name",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "e.g. Piyush R Saini",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.person_outline, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.person_outline, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Name is required" : null,
@@ -264,23 +264,23 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Email",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "student@example.com",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.email_outlined, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Email is required" : null,
@@ -291,23 +291,23 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Phone Number",
-                        labelStyle: const TextStyle(color: AppColors.textSecondary),
+                        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "9876543210",
-                        hintStyle: const TextStyle(color: AppColors.textMuted),
-                        prefixIcon: const Icon(Icons.phone_outlined, color: AppColors.primaryLight),
+                        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                        prefixIcon: Icon(Icons.phone_outlined, color: colorScheme.primary),
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
+                        fillColor: colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderSubtle),
+                          borderSide: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primaryLight),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
                       validator: (v) => (v == null || v.trim().isEmpty) ? "Phone is required" : null,
@@ -323,8 +323,8 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                 icon: const Icon(Icons.camera_alt),
                 label: const Text("Save & Enroll Face (Camera)", style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -336,8 +336,8 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                 icon: const Icon(Icons.photo_library),
                 label: const Text("Save & Enroll from Photo"),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: AppColors.border),
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.8)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -346,7 +346,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
 
               TextButton(
                 onPressed: _isLoading ? null : _submitOnly,
-                child: const Text("Save Student (Enroll Face Later)", style: TextStyle(color: AppColors.textSecondary)),
+                child: Text("Save Student (Enroll Face Later)", style: TextStyle(color: colorScheme.primary)),
               ),
             ],
           ),

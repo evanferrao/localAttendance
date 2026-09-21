@@ -37,9 +37,23 @@ class AttendanceExportService {
     required String className,
     required String attendanceDate,
     required int sessionId,
+    String extension = 'json',
   }) {
     final slug = slugify(className);
-    return 'attendance_${slug}_${attendanceDate}_session_$sessionId.json';
+    final ext = extension.startsWith('.') ? extension.substring(1) : extension;
+    return 'attendance_${slug}_${attendanceDate}_session_$sessionId.$ext';
+  }
+
+  /// Escapes a CSV field according to RFC 4180 rules
+  static String escapeCsvField(String? value) {
+    if (value == null) return '';
+    if (value.contains(',') ||
+        value.contains('"') ||
+        value.contains('\n') ||
+        value.contains('\r')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
   }
 
   /// Generates the Map structure representing the complete session attendance
@@ -95,18 +109,56 @@ class AttendanceExportService {
     return encoder.convert(map);
   }
 
-  /// Exports the session and saves to a JSON file in the application document directory
-  Future<File> exportSessionToFile(int sessionId, {String? customDir}) async {
+  /// Exports the session to an RFC 4180 compliant CSV string
+  Future<String> exportSessionAsCsvString(int sessionId) async {
+    final map = await generateExportMap(sessionId);
+    final attendance = map['attendance'] as Map<String, dynamic>;
+    final className = attendance['class']?['name']?.toString() ?? '';
+    final date = attendance['date']?.toString() ?? '';
+    final sessId = attendance['session_id']?.toString() ?? sessionId.toString();
+    final students = (map['students'] as List<dynamic>?) ?? [];
+
+    final buffer = StringBuffer();
+    // Header
+    buffer.writeln(
+      'Register Number,Name,Status,Attendance Time,Email,Phone,Class,Date,Session ID',
+    );
+
+    for (final s in students) {
+      final regNo = escapeCsvField(s['register_number']?.toString());
+      final name = escapeCsvField(s['name']?.toString());
+      final status = escapeCsvField(s['status']?.toString());
+      final time = escapeCsvField(s['attendance_time']?.toString());
+      final email = escapeCsvField(s['email']?.toString());
+      final phone = escapeCsvField(s['phone']?.toString());
+      final cls = escapeCsvField(className);
+      final dt = escapeCsvField(date);
+      final sid = escapeCsvField(sessId);
+
+      buffer.writeln('$regNo,$name,$status,$time,$email,$phone,$cls,$dt,$sid');
+    }
+
+    return buffer.toString();
+  }
+
+  /// Exports the session and saves to a JSON or CSV file in the application document directory
+  Future<File> exportSessionToFile(
+    int sessionId, {
+    String? customDir,
+    String format = 'json',
+  }) async {
     final session = await _sessionRepo.getSessionById(sessionId);
     if (session == null) {
       throw StateError('Attendance session $sessionId not found');
     }
 
+    final isCsv = format.toLowerCase() == 'csv';
     final className = session.className ?? 'class_${session.classId}';
     final filename = generateFilename(
       className: className,
       attendanceDate: session.attendanceDate,
       sessionId: session.id!,
+      extension: isCsv ? 'csv' : 'json',
     );
 
     String dirPath = customDir ?? '';
@@ -120,18 +172,36 @@ class AttendanceExportService {
     }
 
     final file = File(p.join(dirPath, filename));
-    final jsonString = await exportSessionAsJsonString(sessionId);
-    await file.writeAsString(jsonString);
+    final content = isCsv
+        ? await exportSessionAsCsvString(sessionId)
+        : await exportSessionAsJsonString(sessionId);
+    await file.writeAsString(content);
     return file;
+  }
+
+  /// Exports the session and saves to a CSV file in the application document directory
+  Future<File> exportSessionToCsvFile(int sessionId, {String? customDir}) async {
+    return exportSessionToFile(sessionId, customDir: customDir, format: 'csv');
   }
 
   /// Export and share the JSON file via system share sheet
   Future<void> shareSessionJson(int sessionId) async {
-    final file = await exportSessionToFile(sessionId);
+    final file = await exportSessionToFile(sessionId, format: 'json');
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path)],
-        subject: 'Attendance Export - ${p.basename(file.path)}',
+        subject: 'Attendance Export (JSON) - ${p.basename(file.path)}',
+      ),
+    );
+  }
+
+  /// Export and share the CSV file via system share sheet
+  Future<void> shareSessionCsv(int sessionId) async {
+    final file = await exportSessionToCsvFile(sessionId);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'Attendance Export (CSV) - ${p.basename(file.path)}',
       ),
     );
   }

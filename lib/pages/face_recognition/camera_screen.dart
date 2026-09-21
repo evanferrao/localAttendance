@@ -33,7 +33,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
   int _countdown = kCaptureIntervalSeconds;
   Timer? _intervalTimer;
 
-  String _statusMessage = "Position your face in the oval frame";
+  String _statusMessage = "Position your face in the box frame";
 
   bool get _isRegistering => !widget.isLogin;
 
@@ -83,7 +83,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       setState(() {
         if (_countdown > 1) {
           _countdown--;
-          _statusMessage = "Align face in oval • Auto-scan in ${_countdown}s";
+          _statusMessage = "Align face in box • Auto-scan in ${_countdown}s";
         } else {
           _countdown = kCaptureIntervalSeconds;
           _triggerPhotoCapture();
@@ -205,18 +205,21 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.navySurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Icon(Icons.check_circle, color: AppColors.present, size: 52),
-        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16)),
-        actions: [
-          TextButton(
-            onPressed: proceed,
-            child: const Text("Continue", style: TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        return AlertDialog(
+          backgroundColor: colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Icon(Icons.check_circle, color: AppColors.present, size: 52),
+          content: Text(message, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurface, fontSize: 16)),
+          actions: [
+            TextButton(
+              onPressed: proceed,
+              child: Text("Continue", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
     );
 
     Future.delayed(const Duration(milliseconds: 1500), proceed);
@@ -257,7 +260,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
 
-          // 2. Oval face guide overlay
+          // 2. Box face guide overlay
           Positioned.fill(
             child: CustomPaint(
               painter: _FaceOverlayPainter(
@@ -325,7 +328,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _faceDetected ? "Face in Frame" : "Keep face inside oval",
+                        _faceDetected ? "Face in Frame" : "Keep face inside box",
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -388,8 +391,8 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
                   child: ElevatedButton(
                     onPressed: (_isCapturing || _isProcessing) ? null : _triggerPhotoCapture,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       disabledBackgroundColor: Colors.grey.shade800,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 4,
@@ -442,22 +445,23 @@ class _FaceOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final ovalRect = Rect.fromCenter(
+    final boxRect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height * 0.44),
-      width: size.width * 0.68,
-      height: size.height * 0.44,
+      width: size.width * 0.72,
+      height: size.height * 0.42,
     );
+    final rrect = RRect.fromRectAndRadius(boxRect, const Radius.circular(20));
 
     canvas.drawPath(
       Path()
         ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..addOval(ovalRect)
+        ..addRRect(rrect)
         ..fillType = PathFillType.evenOdd,
       Paint()..color = Colors.black54,
     );
 
-    canvas.drawOval(
-      ovalRect,
+    canvas.drawRRect(
+      rrect,
       Paint()
         ..color = borderColor
         ..style = PaintingStyle.stroke
