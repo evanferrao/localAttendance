@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:camera/camera.dart';
 import 'package:face_att/database/repositories/attendance_record_repository.dart';
@@ -11,10 +10,17 @@ import 'package:face_att/models/class_model.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/models/teacher.dart';
 import 'package:face_att/pages/attendance/attendance_summary_screen.dart';
-import 'package:face_att/pages/face_recognition/camera_screen.dart';
-import 'package:face_att/pages/face_recognition/liveness_service.dart';
-import 'package:face_att/pages/face_recognition/ml_service.dart';
-import 'package:face_att/pages/face_recognition/spoof_guard.dart';
+import 'package:face_att/pages/attendance/widgets/attendance_stats_card.dart';
+import 'package:face_att/pages/attendance/widgets/end_attendance_dialog.dart';
+import 'package:face_att/pages/attendance/widgets/scanner_app_bar_actions.dart';
+import 'package:face_att/pages/attendance/widgets/scanner_camera_view.dart';
+import 'package:face_att/pages/attendance/widgets/scanner_hud_overlay.dart';
+import 'package:face_att/pages/attendance/widgets/scanner_student_tabs.dart';
+import 'package:face_att/services/camera_service.dart';
+import 'package:face_att/services/face_recognition/liveness_service.dart';
+import 'package:face_att/services/face_recognition/ml_service.dart';
+import 'package:face_att/services/face_recognition/spoof_guard.dart';
+import 'package:face_att/services/face_recognition/student_recognition_resolver.dart';
 import 'package:face_att/services/attendance_service.dart';
 import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -151,13 +157,10 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   Future<void> _initializeCamera() async {
-    if (cameras == null || cameras!.isEmpty) {
-      try {
-        cameras = await availableCameras();
-      } catch (_) {}
-    }
+    await CameraProvider.initialize();
 
-    if (cameras == null || cameras!.isEmpty) {
+    final camera = CameraProvider.frontCamera;
+    if (camera == null) {
       if (mounted) {
         setState(() {
           _statusMessage = "No camera hardware detected";
@@ -165,11 +168,6 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       }
       return;
     }
-
-    final camera = cameras!.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras!.first,
-    );
 
     _cameraController = CameraController(
       camera,
@@ -380,24 +378,11 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         continue;
       }
 
-      Student? student;
-      final parsedId = int.tryParse(result.studentId!);
-      if (parsedId != null) {
-        student = _enrolledStudents.where((s) => s.id == parsedId).firstOrNull;
-      }
-      student ??= _enrolledStudents.where(
-        (s) => s.registerNumber.trim().toLowerCase() == result.studentId!.trim().toLowerCase(),
-      ).firstOrNull;
-      student ??= _enrolledStudents.where(
-        (s) => s.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
-      ).firstOrNull;
-
-      if (student == null) {
-        if (parsedId != null) {
-          student = await _studentRepo.getStudentById(parsedId);
-        }
-        student ??= await _studentRepo.getStudentByRegisterNumber(result.studentId!);
-      }
+      final student = await StudentRecognitionResolver.resolveStudentForResult(
+        result: result,
+        enrolledStudents: _enrolledStudents,
+        studentRepo: _studentRepo,
+      );
 
       if (student == null || student.id == null) {
         unrecognizedCount++;
@@ -464,24 +449,11 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       return;
     }
 
-    Student? student;
-    final parsedId = int.tryParse(result.studentId!);
-    if (parsedId != null) {
-      student = _enrolledStudents.where((s) => s.id == parsedId).firstOrNull;
-    }
-    student ??= _enrolledStudents.where(
-      (s) => s.registerNumber.trim().toLowerCase() == result.studentId!.trim().toLowerCase(),
-    ).firstOrNull;
-    student ??= _enrolledStudents.where(
-      (s) => s.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
-    ).firstOrNull;
-
-    if (student == null) {
-      if (parsedId != null) {
-        student = await _studentRepo.getStudentById(parsedId);
-      }
-      student ??= await _studentRepo.getStudentByRegisterNumber(result.studentId!);
-    }
+    final student = await StudentRecognitionResolver.resolveStudentForResult(
+      result: result,
+      enrolledStudents: _enrolledStudents,
+      studentRepo: _studentRepo,
+    );
 
     if (student == null || student.id == null) {
       if (mounted) {
@@ -498,7 +470,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     if (!isEnrolled) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student!.name} is not enrolled in this class";
+          _statusMessage = "${student.name} is not enrolled in this class";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -509,7 +481,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     if (_presentStudentIds.contains(student.id!)) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student!.name} is already marked present";
+          _statusMessage = "${student.name} is already marked present";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -528,7 +500,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
       if (mounted) {
         setState(() {
-          _statusMessage = "✓ Marked Present: ${student!.name}";
+          _statusMessage = "✓ Marked Present: ${student.name}";
           _feedbackColor = AppColors.present;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -536,7 +508,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     } else if (markResult == MarkAttendanceResult.studentNotInClass) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student!.name} is not enrolled in this class";
+          _statusMessage = "${student.name} is not enrolled in this class";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -566,82 +538,11 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   Future<void> _confirmEndAttendance() async {
-    final presentCount = _presentStudentIds.length;
-    final totalCount = _records.length;
-    final absentCount = totalCount - presentCount;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final colorScheme = Theme.of(ctx).colorScheme;
-        return AlertDialog(
-          backgroundColor: colorScheme.surfaceContainer,
-          title: Text("End Attendance Session?", style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Class: ${widget.classModel.name}", style: TextStyle(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Column(
-                      children: [
-                        Text("$presentCount", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.present)),
-                        const SizedBox(height: 2),
-                        Text("Present", style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                    Container(height: 30, width: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    Column(
-                      children: [
-                        Text("$absentCount", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.absent)),
-                        const SizedBox(height: 2),
-                        Text("Absent", style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                    Container(height: 30, width: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    Column(
-                      children: [
-                        Text("$totalCount", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-                        const SizedBox(height: 2),
-                        Text("Total", style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Are you sure you want to complete this session? This will finalize the attendance records.",
-                style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8), fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.absent,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("End Session"),
-            ),
-          ],
-        );
-      },
+    final confirmed = await EndAttendanceDialog.show(
+      context,
+      className: widget.classModel.name,
+      presentCount: _presentStudentIds.length,
+      totalCount: _records.length,
     );
 
     if (confirmed == true) {
@@ -704,85 +605,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
           ],
         ),
         actions: [
-          // Mode Toggle Chip (Single vs Classroom Mode)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _toggleMode,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _isEasyMode
-                        ? AppColors.present.withValues(alpha: 0.15)
-                        : colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _isEasyMode
-                          ? AppColors.present.withValues(alpha: 0.6)
-                          : colorScheme.outlineVariant.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _isEasyMode ? Icons.groups_rounded : Icons.person_rounded,
-                        size: 16,
-                        color: _isEasyMode ? AppColors.present : colorScheme.onSurface,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        _isEasyMode ? "Classroom" : "Single",
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _isEasyMode ? AppColors.present : colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          ScannerAppBarActions(
+            isClassroomMode: _isEasyMode,
+            onToggleMode: _toggleMode,
+            onScanFromGallery: _testFromPhoto,
+            onTestDebugPhoto: _testDebugPiyushPhoto,
           ),
-
-          // Secondary options menu (keeps AppBar clean and prevents title truncation)
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert_rounded, color: colorScheme.onSurface),
-            tooltip: "More Options",
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            color: colorScheme.surfaceContainerHigh,
-            onSelected: (val) {
-              if (val == 'gallery') _testFromPhoto();
-              if (val == 'debug') _testDebugPiyushPhoto();
-            },
-            itemBuilder: (ctx) => [
-              PopupMenuItem(
-                value: 'gallery',
-                child: Row(
-                  children: [
-                    Icon(Icons.photo_library_outlined, size: 18, color: colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Text("Scan Photo from Gallery", style: TextStyle(color: colorScheme.onSurface, fontSize: 13)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'debug',
-                child: Row(
-                  children: [
-                    Icon(Icons.bug_report_outlined, size: 18, color: colorScheme.primary),
-                    const SizedBox(width: 12),
-                    Text("Test Debug Photo", style: TextStyle(color: colorScheme.onSurface, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
         ],
       ),
       body: isLandscape
@@ -809,9 +637,17 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
                 alignment: Alignment.center,
                 children: [
                   _buildCameraPreview(),
-                  _buildViewfinderOverlay(isLandscape: true),
-                  _buildFloatingShutterBadge(),
-                  _buildUnifiedStatusCapsule(compact: true),
+                  ScannerHudOverlay(
+                    isLandscape: true,
+                    isProcessing: _isProcessing,
+                    isCapturing: _isCapturing,
+                    isEasyMode: _isEasyMode,
+                    countdown: _countdown,
+                    statusMessage: _statusMessage,
+                    feedbackColor: _feedbackColor,
+                    onTriggerScan: _triggerScan,
+                    compact: true,
+                  ),
                 ],
               ),
             ),
@@ -831,10 +667,17 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
               ),
               child: Column(
                 children: [
-                  _buildAttendanceStatsCard(compact: true),
-                  _buildTabBar(),
+                  AttendanceStatsCard(
+                    totalCount: _records.length,
+                    presentCount: _presentStudentIds.length,
+                    compact: true,
+                  ),
                   Expanded(
-                    child: _buildTabBarView(presentList, absentList),
+                    child: ScannerStudentTabs(
+                      tabController: _tabController,
+                      presentList: presentList,
+                      absentList: absentList,
+                    ),
                   ),
                   _buildEndAttendanceButton(compact: true),
                 ],
@@ -862,9 +705,17 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
                 alignment: Alignment.center,
                 children: [
                   _buildCameraPreview(),
-                  _buildViewfinderOverlay(isLandscape: false),
-                  _buildFloatingShutterBadge(),
-                  _buildUnifiedStatusCapsule(compact: false),
+                  ScannerHudOverlay(
+                    isLandscape: false,
+                    isProcessing: _isProcessing,
+                    isCapturing: _isCapturing,
+                    isEasyMode: _isEasyMode,
+                    countdown: _countdown,
+                    statusMessage: _statusMessage,
+                    feedbackColor: _feedbackColor,
+                    onTriggerScan: _triggerScan,
+                    compact: false,
+                  ),
                 ],
               ),
             ),
@@ -876,14 +727,21 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         // Attendance Progress & Stats
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildAttendanceStatsCard(compact: false),
+          child: AttendanceStatsCard(
+            totalCount: _records.length,
+            presentCount: _presentStudentIds.length,
+            compact: false,
+          ),
         ),
 
         // Tab Bar & Live Student Lists
-        _buildTabBar(),
         Expanded(
           flex: 4,
-          child: _buildTabBarView(presentList, absentList),
+          child: ScannerStudentTabs(
+            tabController: _tabController,
+            presentList: presentList,
+            absentList: absentList,
+          ),
         ),
 
         // Complete Attendance Action Button
@@ -894,482 +752,9 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
   /// Camera Feed Preview with Proper Aspect Ratio
   Widget _buildCameraPreview() {
-    if (_isControllerInitialized && _cameraController != null) {
-      return Container(
-        color: Colors.black,
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: _cameraController!.value.previewSize?.height ?? 1,
-              height: _cameraController!.value.previewSize?.width ?? 1,
-              child: CameraPreview(_cameraController!),
-            ),
-          ),
-        ),
-      );
-    }
-    return Container(
-      color: Colors.black54,
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.videocam_off_rounded, size: 44, color: Colors.white30),
-            SizedBox(height: 8),
-            Text("Camera initializing...", style: TextStyle(color: Colors.white54, fontSize: 13)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Modern Sleek Viewfinder Reticle with Corner Brackets
-  Widget _buildViewfinderOverlay({required bool isLandscape}) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final boxWidth = isLandscape
-            ? (constraints.maxWidth * 0.82).clamp(240.0, 520.0)
-            : (constraints.maxWidth * 0.68).clamp(200.0, 280.0);
-        final boxHeight = isLandscape
-            ? (constraints.maxHeight * 0.72).clamp(180.0, 340.0)
-            : (constraints.maxHeight * 0.68).clamp(220.0, 320.0);
-
-        final frameColor = _isProcessing
-            ? Theme.of(context).colorScheme.primary
-            : (_isEasyMode
-                ? AppColors.present.withValues(alpha: 0.8)
-                : _feedbackColor.withValues(alpha: 0.8));
-
-        return Center(
-          child: CustomPaint(
-            size: Size(boxWidth, boxHeight),
-            painter: _CornerBracketPainter(
-              color: frameColor,
-              cornerLength: 28,
-              strokeWidth: 3.0,
-              borderRadius: 16,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Floating Shutter & Countdown Badge (Top Right of Camera)
-  Widget _buildFloatingShutterBadge() {
-    return Positioned(
-      top: 12,
-      right: 12,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: (_isCapturing || _isProcessing) ? null : _triggerScan,
-          borderRadius: BorderRadius.circular(20),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isCapturing || _isProcessing) ...[
-                      const SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        "Scanning",
-                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                      ),
-                    ] else ...[
-                      const Icon(Icons.camera_alt_rounded, size: 14, color: Colors.white),
-                      const SizedBox(width: 5),
-                      Text(
-                        "${_countdown}s",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Single Unified Status Capsule (Bottom of Camera with Glassmorphism)
-  Widget _buildUnifiedStatusCapsule({required bool compact}) {
-    return Positioned(
-      bottom: compact ? 10 : 14,
-      left: compact ? 12 : 20,
-      right: compact ? 12 : 20,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: compact ? 7 : 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _feedbackColor.withValues(alpha: 0.4),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isProcessing || _isCapturing) ...[
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ] else if (_feedbackColor == AppColors.present) ...[
-                  const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.present),
-                  const SizedBox(width: 8),
-                ] else if (_feedbackColor == AppColors.warning) ...[
-                  const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.warning),
-                  const SizedBox(width: 8),
-                ] else if (_feedbackColor == AppColors.absent) ...[
-                  const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.absent),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                  child: Text(
-                    _statusMessage,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _feedbackColor,
-                      fontSize: compact ? 12 : 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Clean Attendance Progress Card (Eliminates redundant headers)
-  Widget _buildAttendanceStatsCard({required bool compact}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final totalCount = _records.length;
-    final presentCount = _presentStudentIds.length;
-    final absentCount = (totalCount - presentCount).clamp(0, totalCount);
-    final percent = totalCount > 0 ? (presentCount / totalCount) : 0.0;
-
-    return Container(
-      padding: EdgeInsets.all(compact ? 10 : 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Present Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.present.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.present.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.present),
-                    const SizedBox(width: 4),
-                    Text(
-                      "$presentCount Present",
-                      style: const TextStyle(
-                        color: AppColors.present,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Absent Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  "$absentCount Absent",
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-
-              // Total & %
-              Text(
-                "${(percent * 100).toInt()}% • $totalCount total",
-                style: TextStyle(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: percent,
-              minHeight: 5,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.present),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Clean TabBar
-  Widget _buildTabBar() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final presentCount = _records.where((r) => r.isPresent).length;
-    final absentCount = _records.where((r) => r.isAbsent).length;
-
-    return TabBar(
-      controller: _tabController,
-      indicatorColor: colorScheme.primary,
-      indicatorWeight: 2.5,
-      labelColor: colorScheme.primary,
-      unselectedLabelColor: colorScheme.onSurfaceVariant,
-      dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.2),
-      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-      tabs: [
-        Tab(text: "Present ($presentCount)"),
-        Tab(text: "Absent ($absentCount)"),
-      ],
-    );
-  }
-
-  /// TabBarView with Refined Student Tiles and Empty States
-  Widget _buildTabBarView(List<AttendanceRecord> presentList, List<AttendanceRecord> absentList) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return TabBarView(
-      controller: _tabController,
-      children: [
-        // Present List
-        presentList.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.how_to_reg_outlined,
-                        size: 40,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "No students marked present yet",
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Point the camera at students to mark attendance",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: presentList.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.15),
-                ),
-                itemBuilder: (_, i) {
-                  final r = presentList[i];
-                  final initial = r.studentName.isNotEmpty ? r.studentName[0].toUpperCase() : "?";
-                  final timeStr = r.attendanceTime != null && r.attendanceTime!.length >= 16
-                      ? r.attendanceTime!.substring(11, 16)
-                      : "";
-
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.present.withValues(alpha: 0.15),
-                      child: Text(
-                        initial,
-                        style: const TextStyle(
-                          color: AppColors.present,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      r.studentName,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      r.studentRegisterNumber,
-                      style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (timeStr.isNotEmpty)
-                          Text(
-                            timeStr,
-                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
-                          ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.check_circle_rounded, color: AppColors.present, size: 18),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-        // Absent List
-        absentList.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.celebration_rounded, size: 40, color: AppColors.present),
-                      const SizedBox(height: 10),
-                      const Text(
-                        "All students marked present!",
-                        style: TextStyle(
-                          color: AppColors.present,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: absentList.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.15),
-                ),
-                itemBuilder: (_, i) {
-                  final r = absentList[i];
-                  final initial = r.studentName.isNotEmpty ? r.studentName[0].toUpperCase() : "?";
-
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      child: Text(
-                        initial,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      r.studentName,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                    subtitle: Text(
-                      r.studentRegisterNumber,
-                      style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.absent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.absent.withValues(alpha: 0.25)),
-                      ),
-                      child: const Text(
-                        "Absent",
-                        style: TextStyle(
-                          color: AppColors.absent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-      ],
+    return ScannerCameraView(
+      controller: _cameraController,
+      isInitialized: _isControllerInitialized,
     );
   }
 
@@ -1395,74 +780,5 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         ),
       ),
     );
-  }
-}
-
-/// Custom painter for sleek corner-bracket camera viewfinder
-class _CornerBracketPainter extends CustomPainter {
-  final Color color;
-  final double cornerLength;
-  final double strokeWidth;
-  final double borderRadius;
-
-  _CornerBracketPainter({
-    required this.color,
-    required this.cornerLength,
-    required this.strokeWidth,
-    required this.borderRadius,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final w = size.width;
-    final h = size.height;
-    final cl = cornerLength;
-    final r = borderRadius;
-
-    // Top-Left Corner
-    final tlPath = Path()
-      ..moveTo(0, cl)
-      ..lineTo(0, r)
-      ..arcToPoint(Offset(r, 0), radius: Radius.circular(r))
-      ..lineTo(cl, 0);
-    canvas.drawPath(tlPath, paint);
-
-    // Top-Right Corner
-    final trPath = Path()
-      ..moveTo(w - cl, 0)
-      ..lineTo(w - r, 0)
-      ..arcToPoint(Offset(w, r), radius: Radius.circular(r))
-      ..lineTo(w, cl);
-    canvas.drawPath(trPath, paint);
-
-    // Bottom-Left Corner
-    final blPath = Path()
-      ..moveTo(0, h - cl)
-      ..lineTo(0, h - r)
-      ..arcToPoint(Offset(r, h), radius: Radius.circular(r))
-      ..lineTo(cl, h);
-    canvas.drawPath(blPath, paint);
-
-    // Bottom-Right Corner
-    final brPath = Path()
-      ..moveTo(w - cl, h)
-      ..lineTo(w - r, h)
-      ..arcToPoint(Offset(w, h - r), radius: Radius.circular(r))
-      ..lineTo(w, h - cl);
-    canvas.drawPath(brPath, paint);
-  }
-
-  @override
-  bool shouldRepaint(_CornerBracketPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.cornerLength != cornerLength ||
-        oldDelegate.strokeWidth != strokeWidth ||
-        oldDelegate.borderRadius != borderRadius;
   }
 }

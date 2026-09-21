@@ -1,18 +1,12 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:camera/camera.dart';
+import 'package:face_att/models/point2d.dart';
 import 'package:flutter/painting.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 import 'package:image/image.dart' as img;
 
-class Point2D {
-  final double x;
-  final double y;
-  const Point2D(this.x, this.y);
-
-  @override
-  String toString() => 'Point2D($x, $y)';
-}
+export 'package:face_att/models/point2d.dart';
 
 /// Precise 5-point ArcFace facial landmark alignment (norm_crop)
 /// Matches Python InsightFace face alignment with mathematical sub-pixel accuracy.

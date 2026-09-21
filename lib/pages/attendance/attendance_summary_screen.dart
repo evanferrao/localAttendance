@@ -2,11 +2,12 @@ import 'package:face_att/database/repositories/attendance_record_repository.dart
 import 'package:face_att/database/repositories/attendance_session_repository.dart';
 import 'package:face_att/models/attendance_record.dart';
 import 'package:face_att/models/attendance_session.dart';
+import 'package:face_att/pages/attendance/widgets/export_preview_dialog.dart';
 import 'package:face_att/pages/home_screen.dart';
 import 'package:face_att/services/attendance_export_service.dart';
 import 'package:face_att/utils/app_colors.dart';
+import 'package:face_att/utils/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class AttendanceSummaryScreen extends StatefulWidget {
   final int sessionId;
@@ -98,66 +99,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
         ? await _exportService.exportSessionAsCsvString(widget.sessionId)
         : await _exportService.exportSessionAsJsonString(widget.sessionId);
     if (!mounted) return;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainer,
-        title: Row(
-          children: [
-            Icon(isCsv ? Icons.table_chart : Icons.code, color: colorScheme.primary, size: 22),
-            const SizedBox(width: 8),
-            Text(
-              "Exported ${format.toUpperCase()}",
-              style: TextStyle(color: colorScheme.onSurface, fontSize: 18),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              contentStr,
-              style: TextStyle(color: colorScheme.primary, fontFamily: 'monospace', fontSize: 12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: contentStr));
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: AppColors.present,
-                    content: Text("${format.toUpperCase()} copied to clipboard!"),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
-            icon: const Icon(Icons.copy, size: 16),
-            label: const Text("Copy"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Close", style: TextStyle(color: colorScheme.primary)),
-          ),
-        ],
-      ),
-    );
+    await ExportPreviewDialog.show(context, format: format, content: contentStr);
   }
 
-  String _formatTime(String? iso) {
-    if (iso == null) return "--";
-    final dt = DateTime.tryParse(iso);
-    if (dt == null) return iso;
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final s = dt.second.toString().padLeft(2, '0');
-    return "$h:$m:$s";
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,9 +160,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                   Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
                   _statRow("Date", _session?.attendanceDate ?? "--", colorScheme),
                   Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
-                  _statRow("Started", _formatTime(_session?.startedAt), colorScheme),
+                  _statRow("Started", DateTimeUtils.formatTime(_session?.startedAt), colorScheme),
                   Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
-                  _statRow("Ended", _formatTime(_session?.endedAt), colorScheme),
+                  _statRow("Ended", DateTimeUtils.formatTime(_session?.endedAt), colorScheme),
                   Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -265,7 +209,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                       ),
                       title: Text(r.studentName, style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                        "${r.studentRegisterNumber}${r.attendanceTime != null ? ' • ${_formatTime(r.attendanceTime)}' : ''}",
+                        "${r.studentRegisterNumber}${r.attendanceTime != null ? ' • ${DateTimeUtils.formatTime(r.attendanceTime)}' : ''}",
                         style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                       trailing: Text(

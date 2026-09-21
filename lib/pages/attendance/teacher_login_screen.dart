@@ -36,24 +36,15 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
       final password = _passwordController.text;
 
       final teacher = await _teacherRepo.getTeacherByUsername(username);
-      if (teacher == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.absent,
-            content: Text("Teacher account not found"),
-          ),
-        );
-        return;
-      }
+      final isValid = teacher != null &&
+          TeacherAuthService.verifyPassword(password, teacher.passwordHash);
 
-      final isValid = TeacherAuthService.verifyPassword(password, teacher.passwordHash);
       if (!isValid) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.absent,
-            content: Text("Invalid password"),
+            content: Text("Invalid username or password"),
           ),
         );
         return;
@@ -143,6 +134,8 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
                             borderSide: BorderSide(color: colorScheme.primary, width: 2),
                           ),
                         ),
+                        autofillHints: const [AutofillHints.username],
+                        textInputAction: TextInputAction.next,
                         validator: (v) => (v == null || v.trim().isEmpty) ? "Username is required" : null,
                       ),
                       const SizedBox(height: 16),
@@ -151,6 +144,9 @@ class _TeacherLoginScreenState extends State<TeacherLoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        autofillHints: const [AutofillHints.password],
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _login(),
                         style: TextStyle(color: colorScheme.onSurface),
                         decoration: InputDecoration(
                           labelText: "Password",

@@ -46,3 +46,7 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+
+# ONNX Models (downloaded automatically during build)
+assets/*.onnx
+*.onnx

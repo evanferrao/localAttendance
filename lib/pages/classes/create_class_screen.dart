@@ -3,10 +3,13 @@ import 'package:face_att/database/repositories/student_repository.dart';
 import 'package:face_att/database/repositories/teacher_repository.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/models/teacher.dart';
+import 'package:face_att/pages/classes/widgets/class_student_selector.dart';
+import 'package:face_att/pages/classes/widgets/class_teacher_selector.dart';
 import 'package:face_att/pages/home_screen.dart';
 import 'package:face_att/pages/students/create_student_screen.dart';
 import 'package:face_att/pages/teachers/create_teacher_screen.dart';
 import 'package:face_att/utils/app_colors.dart';
+import 'package:face_att/widgets/ui_cards.dart';
 import 'package:flutter/material.dart';
 
 class CreateClassScreen extends StatefulWidget {
@@ -152,47 +155,22 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (widget.isFirstRun) ...[
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        margin: const EdgeInsets.only(bottom: 24),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.waving_hand, color: colorScheme.primary, size: 36),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Welcome to Face Attendance",
-                              style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "No classes have been created yet.\nCreate your first class to get started.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildFirstRunBanner(colorScheme),
+                      const SizedBox(height: 24),
                     ],
 
                     // Class Name
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                      ),
+                    FormCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             "Class Information",
-                            style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -224,132 +202,36 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     const SizedBox(height: 20),
 
                     // Teachers Section
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  "Teachers *",
-                                  style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: _createNewTeacher,
-                                icon: Icon(Icons.add, size: 16, color: colorScheme.primary),
-                                label: Text("New Teacher", style: TextStyle(color: colorScheme.primary)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (_allTeachers.isEmpty)
-                            const Text(
-                              "No teachers exist yet. Click above to create one.",
-                              style: TextStyle(color: AppColors.warning),
-                            )
-                          else
-                            Column(
-                              children: _allTeachers.map((t) {
-                                final isSelected = _selectedTeacherIds.contains(t.id);
-                                return CheckboxListTile(
-                                  value: isSelected,
-                                  activeColor: colorScheme.primary,
-                                  checkColor: colorScheme.onPrimary,
-                                  title: Text(t.displayName, style: TextStyle(color: colorScheme.onSurface)),
-                                  subtitle: Text("@${t.username}", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                                  onChanged: (bool? val) {
-                                    setState(() {
-                                      if (val == true) {
-                                        _selectedTeacherIds.add(t.id!);
-                                      } else {
-                                        _selectedTeacherIds.remove(t.id);
-                                      }
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                        ],
-                      ),
+                    ClassTeacherSelector(
+                      teachers: _allTeachers,
+                      selectedTeacherIds: _selectedTeacherIds,
+                      onTeacherToggled: (id) {
+                        setState(() {
+                          if (_selectedTeacherIds.contains(id)) {
+                            _selectedTeacherIds.remove(id);
+                          } else {
+                            _selectedTeacherIds.add(id);
+                          }
+                        });
+                      },
+                      onNewTeacher: _createNewTeacher,
                     ),
                     const SizedBox(height: 20),
 
                     // Students Section
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  "Students (${_selectedStudentIds.length} selected)",
-                                  style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: _createNewStudent,
-                                icon: Icon(Icons.add, size: 16, color: colorScheme.primary),
-                                label: Text("New Student", style: TextStyle(color: colorScheme.primary)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (_allStudents.isEmpty)
-                            Text(
-                              "No students exist yet. Click above to add students now or add them later.",
-                              style: TextStyle(color: colorScheme.onSurfaceVariant),
-                            )
-                          else
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 250),
-                              child: ListView(
-                                shrinkWrap: true,
-                                children: _allStudents.map((s) {
-                                  final isSelected = _selectedStudentIds.contains(s.id);
-                                  return CheckboxListTile(
-                                    value: isSelected,
-                                    activeColor: colorScheme.primary,
-                                    checkColor: colorScheme.onPrimary,
-                                    title: Text(s.name, style: TextStyle(color: colorScheme.onSurface)),
-                                    subtitle: Text(
-                                      "${s.registerNumber} • ${s.hasFaceEnrolled ? 'Face Enrolled' : 'No Face'}",
-                                      style: TextStyle(
-                                        color: s.hasFaceEnrolled ? AppColors.present : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    onChanged: (bool? val) {
-                                      setState(() {
-                                        if (val == true) {
-                                          _selectedStudentIds.add(s.id!);
-                                        } else {
-                                          _selectedStudentIds.remove(s.id);
-                                        }
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                        ],
-                      ),
+                    ClassStudentSelector(
+                      students: _allStudents,
+                      selectedStudentIds: _selectedStudentIds,
+                      onStudentToggled: (id) {
+                        setState(() {
+                          if (_selectedStudentIds.contains(id)) {
+                            _selectedStudentIds.remove(id);
+                          } else {
+                            _selectedStudentIds.add(id);
+                          }
+                        });
+                      },
+                      onNewStudent: _createNewStudent,
                     ),
                     const SizedBox(height: 32),
 
@@ -377,6 +259,33 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildFirstRunBanner(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.waving_hand, color: colorScheme.primary, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            "Welcome to Face Attendance",
+            style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "No classes have been created yet.\nCreate your first class to get started.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 }

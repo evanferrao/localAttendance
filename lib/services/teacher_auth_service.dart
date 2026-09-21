@@ -14,13 +14,23 @@ class TeacherAuthService {
     return '$effectiveSalt:${digest.toString()}';
   }
 
-  /// Verify a plaintext password against the stored salt:hash string
+  /// Verify a plaintext password against the stored salt:hash string using constant-time comparison
   static bool verifyPassword(String password, String storedHash) {
     final parts = storedHash.split(':');
     if (parts.length != 2) return false;
     final salt = parts[0];
     final expectedHash = hashPassword(password, salt: salt);
-    return expectedHash == storedHash;
+    return constantTimeEquals(expectedHash, storedHash);
+  }
+
+  /// Constant-time string comparison to prevent timing attacks
+  static bool constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    int result = 0;
+    for (int i = 0; i < a.length; i++) {
+      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return result == 0;
   }
 
   static String _generateSalt() {

@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:face_att/pages/face_recognition/image_converter.dart';
+import 'package:face_att/services/face_recognition/image_converter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -8,7 +8,7 @@ import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/database/repositories/student_repository.dart';
 import 'package:face_att/database/repositories/teacher_repository.dart';
 import 'package:face_att/models/user.dart';
-import 'package:face_att/pages/face_recognition/ml_service.dart';
+import 'package:face_att/services/face_recognition/ml_service.dart';
 import 'package:face_att/services/attendance_export_service.dart';
 import 'package:face_att/services/attendance_service.dart';
 import 'package:face_att/services/teacher_auth_service.dart';

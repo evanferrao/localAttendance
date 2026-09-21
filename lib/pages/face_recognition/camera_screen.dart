@@ -3,12 +3,15 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:face_att/models/user.dart';
-import 'package:face_att/pages/face_recognition/ml_service.dart';
+import 'package:face_att/pages/face_recognition/widgets/face_overlay_painter.dart';
+import 'package:face_att/services/camera_service.dart';
+import 'package:face_att/services/face_recognition/ml_service.dart';
 import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';
 
-List<CameraDescription>? cameras;
+export 'package:face_att/services/camera_service.dart';
 
+/// Screen for scanning and enrolling faces via live camera feed with a periodic countdown.
 class FaceScanScreen extends StatefulWidget {
   final bool isLogin;
   final User? registerUser;
@@ -44,14 +47,9 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
   }
 
   Future<void> _initializeCamera() async {
-    if (cameras == null || cameras!.isEmpty) return;
+    final camera = CameraProvider.frontCamera;
+    if (camera == null) return;
 
-    final camera = cameras!.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras!.first,
-    );
-
-    // Use ResolutionPreset.medium for sharp, clean photo capture with smooth preview
     _cameraController = CameraController(
       camera,
       ResolutionPreset.medium,
@@ -65,7 +63,6 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       if (!mounted) return;
       setState(() => _isControllerInitialized = true);
 
-      // Start 5-second periodic capture loop
       _startCountdownLoop();
     } catch (e) {
       debugPrint("Camera init error: $e");
@@ -113,7 +110,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       } catch (_) {}
 
       if (!mounted) return;
-      setState(() => _statusMessage = "Analyzing photo with ArcFace ResNet-50...");
+      setState(() => _statusMessage = "Analyzing photo with ArcFace...");
 
       final faceData = await _mlService.detectFaceOnImageBytes(
         bytes,
@@ -167,11 +164,10 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
     });
 
     if (_isRegistering && widget.registerUser != null) {
-      final user = widget.registerUser!;
-      user.array = embedding;
+      final user = widget.registerUser!.copyWith(array: embedding);
       await _mlService.saveUser(user);
       if (!mounted) return;
-      _showSuccess("Face registered successfully with high-accuracy ArcFace!", () {
+      _showSuccess("Face registered successfully with ArcFace!", () {
         Navigator.pop(context, true);
       });
       return;
@@ -211,11 +207,18 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
           backgroundColor: colorScheme.surfaceContainer,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Icon(Icons.check_circle, color: AppColors.present, size: 52),
-          content: Text(message, textAlign: TextAlign.center, style: TextStyle(color: colorScheme.onSurface, fontSize: 16)),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colorScheme.onSurface, fontSize: 16),
+          ),
           actions: [
             TextButton(
               onPressed: proceed,
-              child: Text("Continue", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              child: Text(
+                "Continue",
+                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -263,7 +266,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
           // 2. Box face guide overlay
           Positioned.fill(
             child: CustomPaint(
-              painter: _FaceOverlayPainter(
+              painter: FaceOverlayPainter(
                 borderColor: _faceDetected
                     ? Colors.greenAccent
                     : (_isCapturing ? Colors.amberAccent : Colors.white54),
@@ -278,62 +281,9 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
             right: 16,
             child: Column(
               children: [
-                // Model & Interval Chip
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.memory, color: Colors.cyanAccent, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        _mlService.activeModelName,
-                        style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.cyanAccent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text("5s Interval", style: TextStyle(color: Colors.white, fontSize: 11)),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildModelChip(),
                 const SizedBox(height: 8),
-                // Face detected status chip
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _faceDetected ? Colors.greenAccent : Colors.white24,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _faceDetected ? Icons.check_circle : Icons.face,
-                        color: _faceDetected ? Colors.greenAccent : Colors.white70,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _faceDetected ? "Face in Frame" : "Keep face inside box",
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildFaceStatusChip(),
               ],
             ),
           ),
@@ -346,90 +296,9 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Status message banner
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: _isCapturing ? Colors.amberAccent : Colors.white12,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_isCapturing) ...[
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amberAccent),
-                        ),
-                        const SizedBox(width: 10),
-                      ],
-                      Flexible(
-                        child: Text(
-                          _statusMessage,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _isCapturing ? Colors.amberAccent : Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildStatusBanner(),
                 const SizedBox(height: 12),
-
-                // Manual "Scan Now" button with countdown badge
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: (_isCapturing || _isProcessing) ? null : _triggerPhotoCapture,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      disabledBackgroundColor: Colors.grey.shade800,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 4,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isCapturing || _isProcessing)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        else ...[
-                          const Icon(Icons.camera_alt, size: 20),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Scan Now",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              "${_countdown}s",
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+                _buildScanNowButton(context),
               ],
             ),
           ),
@@ -437,38 +306,149 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
       ),
     );
   }
-}
 
-class _FaceOverlayPainter extends CustomPainter {
-  final Color borderColor;
-  const _FaceOverlayPainter({this.borderColor = Colors.greenAccent});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final boxRect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height * 0.44),
-      width: size.width * 0.72,
-      height: size.height * 0.42,
-    );
-    final rrect = RRect.fromRectAndRadius(boxRect, const Radius.circular(20));
-
-    canvas.drawPath(
-      Path()
-        ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..addRRect(rrect)
-        ..fillType = PathFillType.evenOdd,
-      Paint()..color = Colors.black54,
-    );
-
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..color = borderColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0,
+  Widget _buildModelChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.memory, color: Colors.cyanAccent, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            _mlService.activeModelName,
+            style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.cyanAccent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text("5s Interval", style: TextStyle(color: Colors.white, fontSize: 11)),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  bool shouldRepaint(_FaceOverlayPainter old) => old.borderColor != borderColor;
+  Widget _buildFaceStatusChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _faceDetected ? Colors.greenAccent : Colors.white24,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _faceDetected ? Icons.check_circle : Icons.face,
+            color: _faceDetected ? Colors.greenAccent : Colors.white70,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _faceDetected ? "Face in Frame" : "Keep face inside box",
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _isCapturing ? Colors.amberAccent : Colors.white12,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (_isCapturing) ...[
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amberAccent),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Flexible(
+            child: Text(
+              _statusMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: _isCapturing ? Colors.amberAccent : Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScanNowButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: (_isCapturing || _isProcessing) ? null : _triggerPhotoCapture,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          disabledBackgroundColor: Colors.grey.shade800,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 4,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_isCapturing || _isProcessing)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            else ...[
+              const Icon(Icons.camera_alt, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                "Scan Now",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "${_countdown}s",
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

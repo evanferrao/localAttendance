@@ -14,13 +14,23 @@ class StudentListScreen extends StatefulWidget {
 
 class _StudentListScreenState extends State<StudentListScreen> {
   final StudentRepository _studentRepo = StudentRepository();
+  final TextEditingController _searchController = TextEditingController();
+
   List<Student> _students = [];
+  String _searchQuery = '';
+  String _filterMode = 'all'; // 'all', 'enrolled', 'needs_face'
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadStudents();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadStudents() async {
@@ -48,6 +58,19 @@ class _StudentListScreenState extends State<StudentListScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    final filtered = _students.where((s) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          s.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.registerNumber.toLowerCase().contains(_searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+      if (_filterMode == 'enrolled') return s.hasFaceEnrolled;
+      if (_filterMode == 'needs_face') return !s.hasFaceEnrolled;
+      return true;
+    }).toList();
+
+    final enrolledCount = _students.where((s) => s.hasFaceEnrolled).length;
+    final needsFaceCount = _students.length - enrolledCount;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -55,74 +78,162 @@ class _StudentListScreenState extends State<StudentListScreen> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
-          : _students.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          : Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                    style: TextStyle(color: colorScheme.onSurface),
+                    decoration: InputDecoration(
+                      hintText: "Search by name or roll number...",
+                      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+                      prefixIcon: Icon(Icons.search, color: colorScheme.primary),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainer,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    ),
+                  ),
+                ),
+
+                // Filter Chips
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
                     children: [
-                      Icon(Icons.school_outlined, size: 64, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                      const SizedBox(height: 16),
-                      Text("No students found", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 18)),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _addStudent,
-                        icon: const Icon(Icons.add),
-                        label: const Text("Add Student"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                        ),
+                      FilterChip(
+                        label: Text("All (${_students.length})"),
+                        selected: _filterMode == 'all',
+                        onSelected: (_) => setState(() => _filterMode = 'all'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: Text("Enrolled ($enrolledCount)"),
+                        selected: _filterMode == 'enrolled',
+                        onSelected: (_) => setState(() => _filterMode = 'enrolled'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: Text("Needs Face ($needsFaceCount)"),
+                        selected: _filterMode == 'needs_face',
+                        onSelected: (_) => setState(() => _filterMode = 'needs_face'),
                       ),
                     ],
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: _students.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final student = _students[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        leading: CircleAvatar(
-                          backgroundColor: student.hasFaceEnrolled
-                              ? AppColors.present.withValues(alpha: 0.2)
-                              : AppColors.warning.withValues(alpha: 0.2),
-                          foregroundColor: student.hasFaceEnrolled ? AppColors.present : AppColors.warning,
-                          child: Icon(
-                            student.hasFaceEnrolled ? Icons.face : Icons.face_outlined,
-                          ),
-                        ),
-                        title: Text(
-                          student.name,
-                          style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        subtitle: Text(
-                          student.registerNumber,
-                          style: TextStyle(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: Icon(
-                          student.hasFaceEnrolled ? Icons.verified : Icons.warning_amber_rounded,
-                          color: student.hasFaceEnrolled ? AppColors.present : AppColors.warning,
-                          size: 20,
-                        ),
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => StudentDetailScreen(student: student)),
-                          );
-                          _loadStudents();
-                        },
-                      ),
-                    );
-                  },
                 ),
+                const SizedBox(height: 8),
+
+                // Student List / Empty States
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadStudents,
+                    child: _students.isEmpty
+                        ? ListView(
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.school_outlined, size: 64, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                                    const SizedBox(height: 16),
+                                    Text("No students found", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 18)),
+                                    const SizedBox(height: 24),
+                                    ElevatedButton.icon(
+                                      onPressed: _addStudent,
+                                      icon: const Icon(Icons.add),
+                                      label: const Text("Add Student"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: colorScheme.primary,
+                                        foregroundColor: colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : filtered.isEmpty
+                            ? ListView(
+                                children: [
+                                  SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                                  Center(
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.search_off_rounded, size: 48, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          "No matching students found",
+                                          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(20),
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  final student = filtered[index];
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainer,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                                    ),
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                      leading: CircleAvatar(
+                                        backgroundColor: student.hasFaceEnrolled
+                                            ? AppColors.present.withValues(alpha: 0.2)
+                                            : AppColors.warning.withValues(alpha: 0.2),
+                                        foregroundColor: student.hasFaceEnrolled ? AppColors.present : AppColors.warning,
+                                        child: Icon(
+                                          student.hasFaceEnrolled ? Icons.face : Icons.face_outlined,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        student.name,
+                                        style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      subtitle: Text(
+                                        student.registerNumber,
+                                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                                      ),
+                                      trailing: Icon(
+                                        student.hasFaceEnrolled ? Icons.verified : Icons.warning_amber_rounded,
+                                        color: student.hasFaceEnrolled ? AppColors.present : AppColors.warning,
+                                        size: 20,
+                                      ),
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => StudentDetailScreen(student: student)),
+                                        );
+                                        _loadStudents();
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addStudent,
         backgroundColor: colorScheme.primary,

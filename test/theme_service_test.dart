@@ -15,7 +15,7 @@ void main() {
       final lightTheme = themeService.buildLightTheme(null);
 
       expect(lightTheme.brightness, Brightness.light);
-      expect(lightTheme.colorScheme.primary.value, isNotNull);
+      expect(lightTheme.colorScheme.primary, isNotNull);
       // In Material 3, ColorScheme.fromSeed with Brightness.light generates primary tonal color from the seed
       expect(lightTheme.colorScheme.brightness, Brightness.light);
       // Background must NOT be black in light mode

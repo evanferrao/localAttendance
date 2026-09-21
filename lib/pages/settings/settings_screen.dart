@@ -1,4 +1,4 @@
-import 'package:face_att/pages/face_recognition/ml_service.dart';
+import 'package:face_att/services/face_recognition/ml_service.dart';
 import 'package:face_att/services/theme_service.dart';
 import 'package:face_att/utils/app_colors.dart';
 import 'package:flutter/material.dart';

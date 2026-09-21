@@ -1,10 +1,9 @@
-import 'package:camera/camera.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:face_att/database/app_database.dart';
 import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/pages/classes/create_class_screen.dart';
-import 'package:face_att/pages/face_recognition/camera_screen.dart';
 import 'package:face_att/pages/home_screen.dart';
+import 'package:face_att/services/camera_service.dart';
 import 'package:face_att/services/theme_service.dart';
 import 'package:face_att/utils/local_db.dart';
 import 'package:flutter/material.dart';
@@ -13,9 +12,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    cameras = await availableCameras();
-  } catch (_) {}
+  await CameraProvider.initialize();
 
   await Hive.initFlutter();
   await HiveBoxes.initialize();

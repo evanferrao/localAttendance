@@ -1,6 +1,7 @@
 import 'package:face_att/database/repositories/teacher_repository.dart';
 import 'package:face_att/services/teacher_auth_service.dart';
 import 'package:face_att/utils/app_colors.dart';
+import 'package:face_att/utils/utils.dart';
 import 'package:flutter/material.dart';
 
 class CreateTeacherScreen extends StatefulWidget {
@@ -155,7 +156,11 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? "Username is required" : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return "Username is required";
+                        if (!ValidationUtils.isValidUsername(v)) return "Username must be 3-30 characters (letters, numbers, _)";
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -163,6 +168,9 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.newPassword],
+                      onFieldSubmitted: (_) => _submit(),
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Password",
@@ -187,7 +195,11 @@ class _CreateTeacherScreenState extends State<CreateTeacherScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 4) ? "Password must be at least 4 chars" : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "Password is required";
+                        if (!ValidationUtils.isValidPassword(v)) return "Password must be at least 6 characters";
+                        return null;
+                      },
                     ),
                   ],
                 ),

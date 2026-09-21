@@ -7,6 +7,8 @@ import 'package:face_att/models/class_model.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/models/teacher.dart';
 import 'package:face_att/pages/attendance/attendance_summary_screen.dart';
+import 'package:face_att/pages/classes/widgets/assign_teacher_sheet.dart';
+import 'package:face_att/pages/classes/widgets/enroll_student_sheet.dart';
 import 'package:face_att/pages/students/create_student_screen.dart';
 import 'package:face_att/pages/students/student_detail_screen.dart';
 import 'package:face_att/pages/teachers/create_teacher_screen.dart';
@@ -64,69 +66,22 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     final unassigned = allTeachers.where((t) => !currentTeacherIds.contains(t.id)).toList();
 
     if (!mounted) return;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Assign Teacher", style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-                  TextButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final created = await Navigator.push<Teacher>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreateTeacherScreen()),
-                      );
-                      if (created != null && created.id != null) {
-                        await _classRepo.assignTeacherToClass(_class.id!, created.id!);
-                        _loadData();
-                      }
-                    },
-                    icon: Icon(Icons.add, size: 18, color: colorScheme.primary),
-                    label: Text("Create New", style: TextStyle(color: colorScheme.primary)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (unassigned.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text("All existing teachers are already assigned to this class.", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: unassigned.length,
-                    itemBuilder: (_, i) {
-                      final t = unassigned[i];
-                      return ListTile(
-                        title: Text(t.displayName, style: TextStyle(color: colorScheme.onSurface)),
-                        subtitle: Text("@${t.username}", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                        trailing: Icon(Icons.add_circle_outline, color: colorScheme.primary),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          await _classRepo.assignTeacherToClass(_class.id!, t.id!);
-                          _loadData();
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
+    await AssignTeacherSheet.show(
+      context,
+      unassignedTeachers: unassigned,
+      onTeacherSelected: (t) async {
+        await _classRepo.assignTeacherToClass(_class.id!, t.id!);
+        _loadData();
+      },
+      onCreateNewTeacher: () async {
+        final created = await Navigator.push<Teacher>(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateTeacherScreen()),
         );
+        if (created != null && created.id != null) {
+          await _classRepo.assignTeacherToClass(_class.id!, created.id!);
+          _loadData();
+        }
       },
     );
   }
@@ -137,69 +92,22 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     final unenrolled = allStudents.where((s) => !currentStudentIds.contains(s.id)).toList();
 
     if (!mounted) return;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Enroll Student", style: TextStyle(color: colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
-                  TextButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final created = await Navigator.push<Student>(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreateStudentScreen()),
-                      );
-                      if (created != null && created.id != null) {
-                        await _classRepo.assignStudentToClass(_class.id!, created.id!);
-                        _loadData();
-                      }
-                    },
-                    icon: Icon(Icons.add, size: 18, color: colorScheme.primary),
-                    label: Text("Create New", style: TextStyle(color: colorScheme.primary)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (unenrolled.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text("All registered students are already in this class.", style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                )
-              else
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: unenrolled.length,
-                    itemBuilder: (_, i) {
-                      final s = unenrolled[i];
-                      return ListTile(
-                        title: Text(s.name, style: TextStyle(color: colorScheme.onSurface)),
-                        subtitle: Text(s.registerNumber, style: TextStyle(color: colorScheme.onSurfaceVariant)),
-                        trailing: Icon(Icons.add_circle_outline, color: colorScheme.primary),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          await _classRepo.assignStudentToClass(_class.id!, s.id!);
-                          _loadData();
-                        },
-                      );
-                    },
-                  ),
-                ),
-            ],
-          ),
+    await EnrollStudentSheet.show(
+      context,
+      unenrolledStudents: unenrolled,
+      onStudentSelected: (s) async {
+        await _classRepo.assignStudentToClass(_class.id!, s.id!);
+        _loadData();
+      },
+      onCreateNewStudent: () async {
+        final created = await Navigator.push<Student>(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateStudentScreen()),
         );
+        if (created != null && created.id != null) {
+          await _classRepo.assignStudentToClass(_class.id!, created.id!);
+          _loadData();
+        }
       },
     );
   }

@@ -2,11 +2,11 @@ import 'package:face_att/database/repositories/student_repository.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/models/user.dart';
 import 'package:face_att/pages/face_recognition/camera_screen.dart';
-import 'package:face_att/pages/face_recognition/ml_service.dart';
+import 'package:face_att/services/face_recognition/face_enrollment_service.dart';
 import 'package:face_att/utils/app_colors.dart';
-import 'package:face_att/utils/local_db.dart';
+import 'package:face_att/utils/utils.dart';
+import 'package:face_att/widgets/ui_cards.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 class CreateStudentScreen extends StatefulWidget {
   const CreateStudentScreen({super.key});
@@ -23,8 +23,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
   final _phoneController = TextEditingController();
 
   final StudentRepository _studentRepo = StudentRepository();
-  final MLService _mlService = MLService();
-  final ImagePicker _picker = ImagePicker();
+  final FaceEnrollmentService _enrollmentService = FaceEnrollmentService();
 
   bool _isLoading = false;
 
@@ -97,7 +96,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
       phone: student.phone,
     );
 
-    await Navigator.push(
+    final enrolled = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => FaceScanScreen(
@@ -107,20 +106,12 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
       ),
     );
 
-    // Also mirror to registerNumber key in Hive for dual lookup support
-    final enrolledUser = LocalDB.getUser(user.id);
-    if (enrolledUser != null && enrolledUser.array != null) {
-      await LocalDB.saveUser(User(
-        id: student.registerNumber,
-        name: student.name,
-        email: student.email,
-        phone: student.phone,
-        array: enrolledUser.array,
-      ));
+    if (enrolled == true) {
+      await _enrollmentService.syncAfterCameraEnrollment(student);
     }
 
     if (mounted) {
-      Navigator.pop(context, student.copyWith(hasFaceEnrolled: true));
+      Navigator.pop(context, student.copyWith(hasFaceEnrolled: enrolled == true));
     }
   }
 
@@ -128,33 +119,11 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
     final student = await _saveStudentRecord();
     if (student == null || !mounted) return;
 
-    final xFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (xFile == null) {
-      if (mounted) Navigator.pop(context, student);
-      return;
-    }
-
     setState(() => _isLoading = true);
     try {
-      final bytes = await xFile.readAsBytes();
-      final user = await _mlService.enrollFromImageBytes(
-        bytes: bytes,
-        studentId: student.id?.toString() ?? student.registerNumber,
-        name: student.name,
-        email: student.email,
-        phone: student.phone,
-      );
+      final user = await _enrollmentService.enrollFromGallery(student);
 
-      // Also mirror to registerNumber key
-      await LocalDB.saveUser(User(
-        id: student.registerNumber,
-        name: student.name,
-        email: student.email,
-        phone: student.phone,
-        array: user.array,
-      ));
-
-      if (mounted) {
+      if (user != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.present,
@@ -162,6 +131,8 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
           ),
         );
         Navigator.pop(context, student.copyWith(hasFaceEnrolled: true));
+      } else if (mounted) {
+        Navigator.pop(context, student);
       }
     } catch (e) {
       if (mounted) {
@@ -191,13 +162,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                ),
+              FormCard(
                 child: Column(
                   children: [
                     Icon(Icons.school, size: 50, color: colorScheme.primary),
@@ -230,13 +195,19 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? "Register number is required" : null,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return "Register number is required";
+                        if (!ValidationUtils.isValidRegisterNumber(v)) return "Invalid register number (no spaces allowed)";
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
                     // Full Name
                     TextFormField(
                       controller: _nameController,
+                      textInputAction: TextInputAction.next,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Full Name",
@@ -264,6 +235,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Email",
@@ -283,7 +255,11 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? "Email is required" : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return "Email is required";
+                        if (!ValidationUtils.isValidEmail(v)) return "Enter a valid email (e.g. user@example.com)";
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -291,6 +267,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.done,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
                         labelText: "Phone Number",
@@ -310,7 +287,11 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? "Phone is required" : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return "Phone is required";
+                        if (!ValidationUtils.isValidPhone(v)) return "Enter a valid phone number (at least 7 digits)";
+                        return null;
+                      },
                     ),
                   ],
                 ),

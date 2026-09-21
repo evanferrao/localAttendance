@@ -4,11 +4,10 @@ import 'package:face_att/models/class_model.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/models/user.dart';
 import 'package:face_att/pages/face_recognition/camera_screen.dart';
-import 'package:face_att/pages/face_recognition/ml_service.dart';
+import 'package:face_att/services/face_recognition/face_enrollment_service.dart';
 import 'package:face_att/utils/app_colors.dart';
-import 'package:face_att/utils/local_db.dart';
+import 'package:face_att/widgets/ui_cards.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final Student student;
@@ -21,8 +20,7 @@ class StudentDetailScreen extends StatefulWidget {
 class _StudentDetailScreenState extends State<StudentDetailScreen> {
   final StudentRepository _studentRepo = StudentRepository();
   final ClassRepository _classRepo = ClassRepository();
-  final MLService _mlService = MLService();
-  final ImagePicker _picker = ImagePicker();
+  final FaceEnrollmentService _enrollmentService = FaceEnrollmentService();
 
   late Student _student;
   List<ClassModel> _classes = [];
@@ -37,16 +35,23 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final refreshed = await _studentRepo.getStudentById(_student.id!) ?? _student;
-    final allClasses = await _classRepo.getAllClasses();
-    final enrolled = allClasses.where((c) => c.studentIds.contains(_student.id!)).toList();
+    if (_student.id != null) {
+      final updated = await _studentRepo.getStudentById(_student.id!);
+      if (updated != null) _student = updated;
+
+      final allClasses = await _classRepo.getAllClasses();
+      final enrolledClasses = <ClassModel>[];
+      for (final c in allClasses) {
+        if (c.id != null) {
+          final isEnrolled = await _classRepo.isStudentEnrolledInClass(_student.id!, c.id!);
+          if (isEnrolled) enrolledClasses.add(c);
+        }
+      }
+      _classes = enrolledClasses;
+    }
 
     if (mounted) {
-      setState(() {
-        _student = refreshed;
-        _classes = enrolled;
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -58,7 +63,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       phone: _student.phone,
     );
 
-    await Navigator.push(
+    final enrolled = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => FaceScanScreen(
@@ -68,44 +73,16 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       ),
     );
 
-    // Mirror to registerNumber key
-    final enrolledUser = LocalDB.getUser(user.id);
-    if (enrolledUser != null && enrolledUser.array != null) {
-      await LocalDB.saveUser(User(
-        id: _student.registerNumber,
-        name: _student.name,
-        email: _student.email,
-        phone: _student.phone,
-        array: enrolledUser.array,
-      ));
+    if (enrolled == true) {
+      await _enrollmentService.syncAfterCameraEnrollment(_student);
+      _loadData();
     }
-
-    _loadData();
   }
 
   Future<void> _enrollWithPhoto() async {
-    final xFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (xFile == null) return;
-
     try {
-      final bytes = await xFile.readAsBytes();
-      final user = await _mlService.enrollFromImageBytes(
-        bytes: bytes,
-        studentId: _student.id?.toString() ?? _student.registerNumber,
-        name: _student.name,
-        email: _student.email,
-        phone: _student.phone,
-      );
-
-      await LocalDB.saveUser(User(
-        id: _student.registerNumber,
-        name: _student.name,
-        email: _student.email,
-        phone: _student.phone,
-        array: user.array,
-      ));
-
-      if (mounted) {
+      final user = await _enrollmentService.enrollFromGallery(_student);
+      if (user != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.present,
@@ -140,13 +117,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Profile Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    ),
+                  FormCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -165,19 +136,30 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                 children: [
                                   Text(
                                     _student.name,
-                                    style: TextStyle(color: colorScheme.onSurface, fontSize: 20, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     _student.registerNumber,
-                                    style: TextStyle(color: colorScheme.primary, fontSize: 15, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                        Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.3), height: 32),
+                        Divider(
+                          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                          height: 32,
+                        ),
 
                         _infoRow(Icons.email_outlined, _student.email, colorScheme),
                         const SizedBox(height: 12),
@@ -207,19 +189,17 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                   const SizedBox(height: 24),
 
                   // Enrolled Classes Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    ),
+                  FormCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           "Enrolled Classes",
-                          style: TextStyle(color: colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         if (_classes.isEmpty)

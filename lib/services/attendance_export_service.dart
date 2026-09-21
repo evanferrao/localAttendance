@@ -4,6 +4,7 @@ import 'package:face_att/database/repositories/attendance_record_repository.dart
 import 'package:face_att/database/repositories/attendance_session_repository.dart';
 import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/database/repositories/teacher_repository.dart';
+import 'package:face_att/utils/utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -24,13 +25,9 @@ class AttendanceExportService {
         _classRepo = classRepo ?? ClassRepository(),
         _teacherRepo = teacherRepo ?? TeacherRepository();
 
-  /// Converts class name to a safe filename slug
-  static String slugify(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-  }
+  /// Converts class name to a safe filename slug.
+  /// Delegates to [StringUtils.slugify] to avoid duplication.
+  static String slugify(String text) => StringUtils.slugify(text);
 
   /// Generates the canonical deterministic filename
   static String generateFilename({
