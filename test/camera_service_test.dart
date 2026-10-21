@@ -32,6 +32,8 @@ void main() {
       expect(CameraProvider.hasCamera, isTrue);
       expect(CameraProvider.frontCamera, equals(front));
       expect(CameraProvider.backCamera, equals(back));
+      expect(CameraProvider.cameraForMode(isMultipleStudentMode: true), equals(back));
+      expect(CameraProvider.cameraForMode(isMultipleStudentMode: false), equals(front));
     });
   });
 }

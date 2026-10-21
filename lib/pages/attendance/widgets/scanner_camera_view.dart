@@ -5,24 +5,39 @@ import 'package:flutter/material.dart';
 class ScannerCameraView extends StatelessWidget {
   final CameraController? controller;
   final bool isInitialized;
+  final BoxFit fit;
 
   const ScannerCameraView({
     super.key,
     required this.controller,
     required this.isInitialized,
+    this.fit = BoxFit.contain,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (isInitialized && controller != null) {
+    if (isInitialized && controller != null && controller!.value.isInitialized) {
+      final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+      final previewSize = controller!.value.previewSize;
+
+      // On Android/iOS, previewSize.width is the longer sensor dimension (e.g. 1280 or 1920)
+      // and previewSize.height is the shorter dimension (e.g. 720 or 1080).
+      // When in landscape, width is the longer edge; in portrait, height is the longer edge.
+      final previewWidth = previewSize != null
+          ? (isLandscape ? previewSize.width : previewSize.height)
+          : (isLandscape ? 16.0 : 9.0);
+      final previewHeight = previewSize != null
+          ? (isLandscape ? previewSize.height : previewSize.width)
+          : (isLandscape ? 9.0 : 16.0);
+
       return Container(
         color: Colors.black,
         child: Center(
           child: FittedBox(
-            fit: BoxFit.cover,
+            fit: fit,
             child: SizedBox(
-              width: controller!.value.previewSize?.height ?? 1,
-              height: controller!.value.previewSize?.width ?? 1,
+              width: previewWidth,
+              height: previewHeight,
               child: CameraPreview(controller!),
             ),
           ),

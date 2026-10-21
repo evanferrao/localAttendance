@@ -2,7 +2,10 @@ import 'package:face_att/database/repositories/student_repository.dart';
 import 'package:face_att/models/student.dart';
 import 'package:face_att/pages/students/create_student_screen.dart';
 import 'package:face_att/pages/students/student_detail_screen.dart';
+import 'package:face_att/pages/students/widgets/student_import_dialogs.dart';
+import 'package:face_att/services/student_import_service.dart';
 import 'package:face_att/utils/app_colors.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 class StudentListScreen extends StatefulWidget {
@@ -54,6 +57,117 @@ class _StudentListScreenState extends State<StudentListScreen> {
     }
   }
 
+  Future<void> _importFromZip() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+
+    if (!mounted) return;
+
+    int current = 0;
+    int total = 0;
+    String currentLabel = 'Reading archive...';
+    StateSetter? dialogSetState;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setProgressState) {
+            dialogSetState = setProgressState;
+            final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : null;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              content: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 16),
+                    Text(
+                      total > 0 ? "Enrolling student $current of $total" : "Extracting student ZIP...",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      currentLabel,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    try {
+      final importService = StudentImportService();
+      StudentImportSummary summary;
+
+      if (file.bytes != null) {
+        summary = await importService.importFromZipBytes(
+          zipBytes: file.bytes!,
+          onProgress: (cur, tot, label) {
+            if (dialogSetState != null) {
+              dialogSetState!(() {
+                current = cur;
+                total = tot;
+                currentLabel = label;
+              });
+            }
+          },
+        );
+      } else if (file.path != null) {
+        summary = await importService.importFromZipFile(
+          filePath: file.path!,
+          onProgress: (cur, tot, label) {
+            if (dialogSetState != null) {
+              dialogSetState!(() {
+                current = cur;
+                total = tot;
+                currentLabel = label;
+              });
+            }
+          },
+        );
+      } else {
+        throw Exception("Unable to read selected ZIP file data.");
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Dismiss progress dialog
+        await StudentImportDialogs.showSummaryDialog(context, summary: summary);
+        _loadStudents();
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Dismiss progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.absent,
+            content: Text("ZIP Import Failed: $e"),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -75,6 +189,13 @@ class _StudentListScreenState extends State<StudentListScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         title: const Text("Manage Students"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_upload_outlined),
+            tooltip: "Import Students (ZIP)",
+            onPressed: _importFromZip,
+          ),
+        ],
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
@@ -207,11 +328,15 @@ class _StudentListScreenState extends State<StudentListScreen> {
                                         ),
                                       ),
                                       title: Text(
-                                        student.name,
+                                        student.displayName,
                                         style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
                                       subtitle: Text(
-                                        student.registerNumber,
+                                        student.name.isNotEmpty
+                                            ? student.registerNumber
+                                            : (student.email.isNotEmpty
+                                                ? student.email
+                                                : (student.phone.isNotEmpty ? student.phone : "Student")),
                                         style: TextStyle(color: colorScheme.onSurfaceVariant),
                                       ),
                                       trailing: Icon(

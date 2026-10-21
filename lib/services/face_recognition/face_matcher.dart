@@ -46,11 +46,11 @@ class FaceMatcher {
   }
 
   /// Search top-k candidate matches against enrolled users.
-  /// If [allowedStudentIds] is provided, only students belonging to that class are evaluated.
+  /// If [allowedRegisterNumbers] is provided, only students belonging to that class are evaluated.
   List<RecognitionMatch> search(
     List<double> queryEmbedding, {
     int k = 5,
-    Set<String>? allowedStudentIds,
+    Set<String>? allowedRegisterNumbers,
     List<User>? enrolledUsers,
   }) {
     final normQuery = l2Normalize(queryEmbedding);
@@ -64,39 +64,34 @@ class FaceMatcher {
       final u = users[idx];
       if (u.array == null || u.array!.isEmpty) continue;
 
-      // Filter: if allowedStudentIds is specified, only consider students in active class
-      if (allowedStudentIds != null && allowedStudentIds.isNotEmpty) {
-        final uIdTrimmed = u.id.trim();
-        final uNameTrimmed = (u.name ?? '').trim();
-        final matchesId = allowedStudentIds.contains(uIdTrimmed) ||
-            allowedStudentIds.contains(uIdTrimmed.toUpperCase()) ||
-            allowedStudentIds.contains(uIdTrimmed.toLowerCase());
-        final matchesName = uNameTrimmed.isNotEmpty &&
-            (allowedStudentIds.contains(uNameTrimmed) ||
-                allowedStudentIds.contains(uNameTrimmed.toLowerCase()));
-        if (!matchesId && !matchesName) {
+      // Filter: if allowedRegisterNumbers is specified, only consider students in active class strictly by registration number
+      if (allowedRegisterNumbers != null && allowedRegisterNumbers.isNotEmpty) {
+        final uRegTrimmed = u.registerNumber.trim();
+        final matchesId = allowedRegisterNumbers.contains(uRegTrimmed) ||
+            allowedRegisterNumbers.contains(uRegTrimmed.toUpperCase()) ||
+            allowedRegisterNumbers.contains(uRegTrimmed.toLowerCase());
+        if (!matchesId) {
           continue;
         }
       }
 
       // Safety guard against legacy / incompatible embedding size
       if (u.array!.length != defaultEmbeddingDimension) {
-        debugPrint("⚠️ Skipping user ${u.name} with incompatible embedding size (${u.array!.length})");
+        debugPrint("⚠️ Skipping user with incompatible embedding size (${u.array!.length})");
         continue;
       }
 
       final stored = l2Normalize(List<double>.from(u.array!));
       final score = dotProduct(normQuery, stored);
 
-      final studentKey = (u.name != null && u.name!.trim().isNotEmpty)
-          ? u.name!.trim().toLowerCase()
-          : u.id.trim().toLowerCase();
+      // Student key: strictly group by registration number (case-insensitive)
+      final studentKey = u.registerNumber.trim().toUpperCase();
 
       final existing = studentBestMatch[studentKey];
       if (existing == null || score > existing.score) {
         studentBestMatch[studentKey] = RecognitionMatch(
-          studentId: u.id,
-          name: u.name ?? "Unknown",
+          registerNumber: u.registerNumber.trim(),
+          name: (u.name != null && u.name!.trim().isNotEmpty) ? u.name!.trim() : u.registerNumber.trim(),
           score: score,
           index: idx,
           user: u,
@@ -113,20 +108,20 @@ class FaceMatcher {
   RecognitionResult match(
     List<double> faceEmbedding, {
     int k = 5,
-    Set<String>? allowedStudentIds,
+    Set<String>? allowedRegisterNumbers,
     List<User>? enrolledUsers,
   }) {
     final results = search(
       faceEmbedding,
       k: k,
-      allowedStudentIds: allowedStudentIds,
+      allowedRegisterNumbers: allowedRegisterNumbers,
       enrolledUsers: enrolledUsers,
     );
 
     if (results.isEmpty) {
       return const RecognitionResult(
         accepted: false,
-        studentId: null,
+        registerNumber: null,
         name: "Unknown",
         score: 0.0,
         secondScore: 0.0,
@@ -137,12 +132,33 @@ class FaceMatcher {
 
     final best = results[0];
 
-    // If only one candidate matched
-    if (results.length < 2) {
+    // Find the best runner-up candidate that is a distinct student strictly by registration number
+    RecognitionMatch? distinctRunnerUp;
+    for (int i = 1; i < results.length; i++) {
+      final cand = results[i];
+      final isSameStudent = cand.registerNumber.trim().toUpperCase() == best.registerNumber.trim().toUpperCase();
+
+      // Check embedding similarity to detect duplicate entries for the same student
+      bool isSameEmbedding = false;
+      if (best.user?.array != null && cand.user?.array != null) {
+        final sim = dotProduct(l2Normalize(best.user!.array!), l2Normalize(cand.user!.array!));
+        if (sim > 0.98) {
+          isSameEmbedding = true;
+        }
+      }
+
+      if (!isSameStudent && !isSameEmbedding) {
+        distinctRunnerUp = cand;
+        break;
+      }
+    }
+
+    // If only one candidate matched or all matches belong to the same student
+    if (distinctRunnerUp == null) {
       final accepted = best.score >= similarityThreshold;
       return RecognitionResult(
         accepted: accepted,
-        studentId: accepted ? best.studentId : null,
+        registerNumber: accepted ? best.registerNumber : null,
         name: accepted ? best.name : "Unknown",
         score: best.score,
         secondScore: 0.0,
@@ -152,9 +168,8 @@ class FaceMatcher {
       );
     }
 
-    final second = results[1];
     final bestScore = best.score;
-    final secondScore = second.score;
+    final secondScore = distinctRunnerUp.score;
     final margin = bestScore - secondScore;
 
     // A candidate is accepted when:
@@ -166,7 +181,7 @@ class FaceMatcher {
 
     return RecognitionResult(
       accepted: accepted,
-      studentId: accepted ? best.studentId : null,
+      registerNumber: accepted ? best.registerNumber : null,
       name: accepted ? best.name : "Unknown",
       score: bestScore,
       secondScore: secondScore,

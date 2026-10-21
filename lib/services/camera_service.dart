@@ -43,6 +43,16 @@ class CameraProvider {
     );
   }
 
+  /// Returns the recommended camera description for the given attendance mode.
+  /// Uses [backCamera] for multiple student / classroom mode, and [frontCamera] for single student mode.
+  static CameraDescription? cameraForMode({required bool isMultipleStudentMode}) {
+    if (isMultipleStudentMode) {
+      return backCamera ?? frontCamera;
+    } else {
+      return frontCamera ?? backCamera;
+    }
+  }
+
   /// Injects cameras for unit or integration testing.
   static void setCamerasForTesting(List<CameraDescription>? testCameras) {
     _cameras = testCameras;

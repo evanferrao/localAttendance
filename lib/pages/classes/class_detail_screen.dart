@@ -88,15 +88,27 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
 
   Future<void> _showAddStudentDialog() async {
     final allStudents = await _studentRepo.getAllStudents();
-    final currentStudentIds = _students.map((s) => s.id).toSet();
-    final unenrolled = allStudents.where((s) => !currentStudentIds.contains(s.id)).toList();
+    final currentRegNos = _students.map((s) => s.registerNumber).toSet();
+    final unenrolled = allStudents.where((s) => !currentRegNos.contains(s.registerNumber)).toList();
 
     if (!mounted) return;
     await EnrollStudentSheet.show(
       context,
       unenrolledStudents: unenrolled,
-      onStudentSelected: (s) async {
-        await _classRepo.assignStudentToClass(_class.id!, s.id!);
+      onStudentsSelected: (selectedList) async {
+        if (selectedList.isEmpty) return;
+        await _classRepo.assignStudentsToClass(
+          _class.id!,
+          selectedList.map((s) => s.registerNumber).toList(),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.present,
+              content: Text("Enrolled ${selectedList.length} student(s) to ${_class.name}"),
+            ),
+          );
+        }
         _loadData();
       },
       onCreateNewStudent: () async {
@@ -104,8 +116,8 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
           context,
           MaterialPageRoute(builder: (_) => const CreateStudentScreen()),
         );
-        if (created != null && created.id != null) {
-          await _classRepo.assignStudentToClass(_class.id!, created.id!);
+        if (created != null && created.registerNumber.isNotEmpty) {
+          await _classRepo.assignStudentToClass(_class.id!, created.registerNumber);
           _loadData();
         }
       },
@@ -125,7 +137,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
   }
 
   Future<void> _removeStudent(Student student) async {
-    await _classRepo.removeStudentFromClass(_class.id!, student.id!);
+    await _classRepo.removeStudentFromClass(_class.id!, student.registerNumber);
     _loadData();
   }
 

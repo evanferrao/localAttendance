@@ -8,6 +8,7 @@ class ScannerAppBarActions extends StatelessWidget {
   final VoidCallback onToggleMode;
   final VoidCallback onScanFromGallery;
   final VoidCallback onTestDebugPhoto;
+  final VoidCallback? onFlipCamera;
 
   const ScannerAppBarActions({
     super.key,
@@ -15,6 +16,7 @@ class ScannerAppBarActions extends StatelessWidget {
     required this.onToggleMode,
     required this.onScanFromGallery,
     required this.onTestDebugPhoto,
+    this.onFlipCamera,
   });
 
   @override
@@ -68,6 +70,14 @@ class ScannerAppBarActions extends StatelessWidget {
             ),
           ),
         ),
+
+        // Flip Camera Button
+        if (onFlipCamera != null)
+          IconButton(
+            icon: Icon(Icons.flip_camera_ios_rounded, color: colorScheme.onSurface, size: 20),
+            tooltip: "Flip Camera",
+            onPressed: onFlipCamera,
+          ),
 
         // Secondary options popup menu
         PopupMenuButton<String>(

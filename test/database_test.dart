@@ -117,13 +117,29 @@ void main() {
         phone: '9876543210',
       );
 
-      expect(student.id, isNotNull);
       expect(student.registerNumber, equals('23BRS1150'));
       expect(student.name, equals('Piyush R Saini'));
 
-      final fetched = await studentRepo.getStudentById(student.id!);
+      final fetched = await studentRepo.getStudentByRegisterNumber(student.registerNumber);
       expect(fetched, isNotNull);
       expect(fetched!.registerNumber, equals('23BRS1150'));
+    });
+
+    test('Create student succeeds with only register number (all other fields optional)', () async {
+      final student = await studentRepo.createStudent(
+        registerNumber: '23BRS9999',
+      );
+
+      expect(student.registerNumber, equals('23BRS9999'));
+      expect(student.name, isEmpty);
+      expect(student.email, isEmpty);
+      expect(student.phone, isEmpty);
+      expect(student.displayName, equals('23BRS9999'));
+
+      final fetched = await studentRepo.getStudentByRegisterNumber(student.registerNumber);
+      expect(fetched, isNotNull);
+      expect(fetched!.registerNumber, equals('23BRS9999'));
+      expect(fetched.displayName, equals('23BRS9999'));
     });
 
     test('Duplicate register number is rejected with DatabaseException', () async {
@@ -188,13 +204,13 @@ void main() {
       final newClass = await classRepo.createClass(
         name: 'B.Tech CSE - Section A',
         teacherIds: [teacher1.id!],
-        studentIds: [s1.id!, s2.id!],
+        studentRegisterNumbers: [s1.registerNumber, s2.registerNumber],
       );
 
       expect(newClass.id, isNotNull);
       expect(newClass.name, equals('B.Tech CSE - Section A'));
       expect(newClass.teacherIds, contains(teacher1.id));
-      expect(newClass.studentIds, containsAll([s1.id, s2.id]));
+      expect(newClass.studentRegisterNumbers, containsAll([s1.registerNumber, s2.registerNumber]));
 
       final fetchedClass = await classRepo.getClassById(newClass.id!);
       expect(fetchedClass, isNotNull);
@@ -204,7 +220,7 @@ void main() {
       final isT1Assigned = await classRepo.isTeacherAssignedToClass(teacher1.id!, newClass.id!);
       expect(isT1Assigned, isTrue);
 
-      final isS1Enrolled = await classRepo.isStudentEnrolledInClass(s1.id!, newClass.id!);
+      final isS1Enrolled = await classRepo.isStudentEnrolledInClass(s1.registerNumber, newClass.id!);
       expect(isS1Enrolled, isTrue);
     });
 
@@ -220,7 +236,7 @@ void main() {
       final newClass = await classRepo.createClass(
         name: 'Physics Lab',
         teacherIds: [teacher1.id!, teacher1.id!], // duplicate in input
-        studentIds: [s1.id!, s1.id!], // duplicate in input
+        studentRegisterNumbers: [s1.registerNumber, s1.registerNumber], // duplicate in input
       );
 
       expect(newClass.teachersCount, equals(1));
@@ -228,12 +244,37 @@ void main() {
 
       // Attempt manual re-assignment
       await classRepo.assignTeacherToClass(newClass.id!, teacher1.id!);
-      await classRepo.assignStudentToClass(newClass.id!, s1.id!);
+      await classRepo.assignStudentToClass(newClass.id!, s1.registerNumber);
 
       final teachers = await classRepo.getTeacherIdsForClass(newClass.id!);
-      final students = await classRepo.getStudentIdsForClass(newClass.id!);
+      final students = await classRepo.getStudentRegisterNumbersForClass(newClass.id!);
       expect(teachers.length, equals(1));
       expect(students.length, equals(1));
+    });
+
+    test('Batch assign multiple students to class at once', () async {
+      final teacher1 = (await teacherRepo.getTeacherByUsername('teacher'))!;
+      final s1 = await studentRepo.createStudent(registerNumber: '23BRS2001', name: 'Student 1');
+      final s2 = await studentRepo.createStudent(registerNumber: '23BRS2002', name: 'Student 2');
+      final s3 = await studentRepo.createStudent(registerNumber: '23BRS2003', name: 'Student 3');
+
+      final newClass = await classRepo.createClass(
+        name: 'Chemistry Lab',
+        teacherIds: [teacher1.id!],
+        studentRegisterNumbers: [],
+      );
+
+      expect(newClass.studentsCount, equals(0));
+
+      await classRepo.assignStudentsToClass(newClass.id!, [
+        s1.registerNumber,
+        s2.registerNumber,
+        s3.registerNumber,
+      ]);
+
+      final enrolled = await classRepo.getStudentRegisterNumbersForClass(newClass.id!);
+      expect(enrolled.length, equals(3));
+      expect(enrolled, containsAll([s1.registerNumber, s2.registerNumber, s3.registerNumber]));
     });
   });
 }

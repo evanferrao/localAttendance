@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:camera/camera.dart';
 import 'package:face_att/database/repositories/attendance_record_repository.dart';
@@ -62,15 +63,15 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   /// Mode: false = Single Mode (Portrait, 1 student)
   ///       true = Classroom Mode (Landscape, identifies multiple students)
   bool _isEasyMode = false;
+  bool _showStudentListInLandscape = false;
 
   int _countdown = kCaptureIntervalSeconds;
   Timer? _intervalTimer;
 
   // In-memory tracking
-  final Set<int> _presentStudentIds = {};
-  Set<int> _enrolledStudentIds = {};
+  final Set<String> _presentRegisterNumbers = {};
+  Set<String> _enrolledRegisterNumbers = {};
   List<Student> _enrolledStudents = [];
-  Set<String> _allowedStudentIds = {};
   List<AttendanceRecord> _records = [];
 
   String _statusMessage = "Position face inside frame";
@@ -103,9 +104,13 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
   /// Toggle between Single Mode (Portrait) and Classroom Mode (Landscape Multi-Student)
   Future<void> _toggleMode() async {
+    if (_isCapturing || _isProcessing) return;
+
     final newMode = !_isEasyMode;
     setState(() {
       _isEasyMode = newMode;
+      _showStudentListInLandscape = false;
+      _isControllerInitialized = false;
       _countdown = kCaptureIntervalSeconds;
       _statusMessage = newMode
           ? "Classroom Mode • Scanning multiple students..."
@@ -124,42 +129,52 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         DeviceOrientation.portraitDown,
       ]);
     }
+
+    // Switch camera: Multiple student mode uses back camera; single mode uses front camera
+    await _initializeCamera(useBackCamera: newMode);
+  }
+
+  /// Flip camera manually between front and back
+  Future<void> _flipCamera() async {
+    if (_isCapturing || _isProcessing || _cameraController == null) return;
+    final currentDirection = _cameraController!.description.lensDirection;
+    final wantBackCamera = currentDirection != CameraLensDirection.back;
+
+    setState(() {
+      _isControllerInitialized = false;
+    });
+
+    await _initializeCamera(useBackCamera: wantBackCamera);
   }
 
   Future<void> _loadClassAndRecords() async {
     final records = await _recordRepo.getRecordsForSession(widget.session.id!);
-    final presentIds = await _recordRepo.getPresentStudentIds(widget.session.id!);
+    final presentRegNos = await _recordRepo.getPresentRegisterNumbers(widget.session.id!);
     final enrolledStudents = await _studentRepo.getStudentsForClass(widget.classModel.id!);
 
-    final allowedIds = <String>{};
+    final allowedRegNos = <String>{};
     for (final s in enrolledStudents) {
-      if (s.id != null) allowedIds.add(s.id.toString());
       if (s.registerNumber.isNotEmpty) {
-        allowedIds.add(s.registerNumber.trim());
-        allowedIds.add(s.registerNumber.trim().toUpperCase());
-        allowedIds.add(s.registerNumber.trim().toLowerCase());
-      }
-      if (s.name.isNotEmpty) {
-        allowedIds.add(s.name.trim().toLowerCase());
+        allowedRegNos.add(s.registerNumber.trim().toUpperCase());
       }
     }
 
     if (mounted) {
       setState(() {
         _records = records;
-        _presentStudentIds.clear();
-        _presentStudentIds.addAll(presentIds);
+        _presentRegisterNumbers.clear();
+        _presentRegisterNumbers.addAll(presentRegNos.map((r) => r.trim().toUpperCase()));
         _enrolledStudents = enrolledStudents;
-        _enrolledStudentIds = enrolledStudents.map((s) => s.id!).toSet();
-        _allowedStudentIds = allowedIds;
+        _enrolledRegisterNumbers = enrolledStudents.map((s) => s.registerNumber.trim().toUpperCase()).toSet();
       });
     }
   }
 
-  Future<void> _initializeCamera() async {
+  Future<void> _initializeCamera({bool? useBackCamera}) async {
     await CameraProvider.initialize();
 
-    final camera = CameraProvider.frontCamera;
+    final wantBackCamera = useBackCamera ?? _isEasyMode;
+    final camera = CameraProvider.cameraForMode(isMultipleStudentMode: wantBackCamera);
     if (camera == null) {
       if (mounted) {
         setState(() {
@@ -169,18 +184,31 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       return;
     }
 
-    _cameraController = CameraController(
+    // Dispose old controller before initializing a new one
+    final oldController = _cameraController;
+    _cameraController = null;
+    if (oldController != null) {
+      await oldController.dispose();
+    }
+
+    final newController = CameraController(
       camera,
-      ResolutionPreset.medium,
+      ResolutionPreset.high,
       enableAudio: false,
     );
 
     try {
-      await _cameraController!.initialize();
-      await _cameraController!.setFlashMode(FlashMode.off);
+      await newController.initialize();
+      await newController.setFlashMode(FlashMode.off);
 
-      if (_isDisposed || !mounted) return;
-      setState(() => _isControllerInitialized = true);
+      if (_isDisposed || !mounted) {
+        await newController.dispose();
+        return;
+      }
+      setState(() {
+        _cameraController = newController;
+        _isControllerInitialized = true;
+      });
 
       _startCountdownLoop();
     } catch (e) {
@@ -339,7 +367,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
     final result = _mlService.recognizeFace(
       embedding,
-      allowedStudentIds: _allowedStudentIds,
+      allowedRegisterNumbers: _enrolledRegisterNumbers,
     );
     await _handleRecognitionResult(result);
   }
@@ -371,9 +399,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
     for (int i = 0; i < embeddings.length; i++) {
       final emb = embeddings[i];
-      final result = _mlService.recognizeFace(emb, allowedStudentIds: _allowedStudentIds);
+      final result = _mlService.recognizeFace(
+        emb,
+        allowedRegisterNumbers: _enrolledRegisterNumbers,
+      );
 
-      if (!result.accepted || result.studentId == null) {
+      if (!result.accepted || result.registerNumber == null) {
         unrecognizedCount++;
         continue;
       }
@@ -384,30 +415,31 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         studentRepo: _studentRepo,
       );
 
-      if (student == null || student.id == null) {
+      if (student == null) {
         unrecognizedCount++;
         continue;
       }
 
-      if (!_enrolledStudentIds.contains(student.id!)) {
+      final reg = student.registerNumber.trim().toUpperCase();
+      if (!_enrolledRegisterNumbers.contains(reg)) {
         continue;
       }
 
-      if (_presentStudentIds.contains(student.id!)) {
-        if (!alreadyPresent.contains(student.name)) {
-          alreadyPresent.add(student.name);
+      if (_presentRegisterNumbers.contains(reg)) {
+        if (!alreadyPresent.contains(student.displayName)) {
+          alreadyPresent.add(student.displayName);
         }
         continue;
       }
 
       final markResult = await _attendanceService.markStudentPresent(
         sessionId: widget.session.id!,
-        studentId: student.id!,
+        registerNumber: student.registerNumber,
       );
 
       if (markResult == MarkAttendanceResult.markedPresent || markResult == MarkAttendanceResult.alreadyPresent) {
-        _presentStudentIds.add(student.id!);
-        newlyMarked.add(student.name);
+        _presentRegisterNumbers.add(reg);
+        newlyMarked.add(student.displayName);
       }
     }
 
@@ -418,19 +450,20 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     if (mounted) {
       setState(() {
         _countdown = kCaptureIntervalSeconds;
+        final totalFaces = faces.length;
         if (newlyMarked.isNotEmpty) {
           final count = newlyMarked.length;
           final names = count <= 2
               ? newlyMarked.join(", ")
               : "${newlyMarked.take(2).join(', ')} +${count - 2} more";
-          _statusMessage = "✓ Marked $count present: $names";
+          _statusMessage = "✓ $totalFaces face(s) • Marked $count: $names";
           _feedbackColor = AppColors.present;
         } else if (alreadyPresent.isNotEmpty) {
           final count = alreadyPresent.length;
-          _statusMessage = "✓ $count student(s) already marked present";
+          _statusMessage = "✓ $totalFaces face(s) • $count student(s) already marked present";
           _feedbackColor = AppColors.warning;
         } else if (unrecognizedCount > 0) {
-          _statusMessage = "$unrecognizedCount student(s) not recognized in this class";
+          _statusMessage = "$totalFaces face(s) detected • $unrecognizedCount not recognized";
           _feedbackColor = AppColors.absent;
         }
       });
@@ -438,7 +471,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   Future<void> _handleRecognitionResult(RecognitionResult result) async {
-    if (!result.accepted || result.studentId == null) {
+    if (!result.accepted || result.registerNumber == null) {
       if (mounted) {
         setState(() {
           _statusMessage = "Face not recognized in this class";
@@ -455,7 +488,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       studentRepo: _studentRepo,
     );
 
-    if (student == null || student.id == null) {
+    if (student == null) {
       if (mounted) {
         setState(() {
           _statusMessage = "Recognized ${result.name}, record not found";
@@ -466,11 +499,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       return;
     }
 
-    final isEnrolled = _enrolledStudentIds.contains(student.id!);
+    final reg = student.registerNumber.trim().toUpperCase();
+    final isEnrolled = _enrolledRegisterNumbers.contains(reg);
     if (!isEnrolled) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student.name} is not enrolled in this class";
+          _statusMessage = "${student.displayName} is not enrolled in this class";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -478,10 +512,10 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       return;
     }
 
-    if (_presentStudentIds.contains(student.id!)) {
+    if (_presentRegisterNumbers.contains(reg)) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student.name} is already marked present";
+          _statusMessage = "${student.displayName} is already marked present";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -491,16 +525,16 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
     final markResult = await _attendanceService.markStudentPresent(
       sessionId: widget.session.id!,
-      studentId: student.id!,
+      registerNumber: student.registerNumber,
     );
 
     if (markResult == MarkAttendanceResult.markedPresent || markResult == MarkAttendanceResult.alreadyPresent) {
-      _presentStudentIds.add(student.id!);
+      _presentRegisterNumbers.add(reg);
       await _loadClassAndRecords();
 
       if (mounted) {
         setState(() {
-          _statusMessage = "✓ Marked Present: ${student.name}";
+          _statusMessage = "✓ Marked Present: ${student.displayName}";
           _feedbackColor = AppColors.present;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -508,7 +542,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     } else if (markResult == MarkAttendanceResult.studentNotInClass) {
       if (mounted) {
         setState(() {
-          _statusMessage = "${student.name} is not enrolled in this class";
+          _statusMessage = "${student.displayName} is not enrolled in this class";
           _feedbackColor = AppColors.warning;
           _countdown = kCaptureIntervalSeconds;
         });
@@ -541,7 +575,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     final confirmed = await EndAttendanceDialog.show(
       context,
       className: widget.classModel.name,
-      presentCount: _presentStudentIds.length,
+      presentCount: _presentRegisterNumbers.length,
       totalCount: _records.length,
     );
 
@@ -608,6 +642,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
           ScannerAppBarActions(
             isClassroomMode: _isEasyMode,
             onToggleMode: _toggleMode,
+            onFlipCamera: _flipCamera,
             onScanFromGallery: _testFromPhoto,
             onTestDebugPhoto: _testDebugPiyushPhoto,
           ),
@@ -619,73 +654,205 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     );
   }
 
-  /// Responsive Landscape Layout for Classroom / Easy Mode
+  /// Responsive Landscape Layout for Classroom / Easy Mode (Uses the Entire Camera)
   Widget _buildLandscapeLayout(List<AttendanceRecord> presentList, List<AttendanceRecord> absentList) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Row(
       children: [
-        // Left: Wide Camera Preview with Sleek Viewfinder
+        // Camera Viewfinder Area: Takes full screen when list is hidden, or dominant 7-flex when list is open
         Expanded(
-          flex: 6,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 6, 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  _buildCameraPreview(),
-                  ScannerHudOverlay(
-                    isLandscape: true,
-                    isProcessing: _isProcessing,
-                    isCapturing: _isCapturing,
-                    isEasyMode: _isEasyMode,
-                    countdown: _countdown,
-                    statusMessage: _statusMessage,
-                    feedbackColor: _feedbackColor,
-                    onTriggerScan: _triggerScan,
-                    compact: true,
-                  ),
-                ],
+          flex: _showStudentListInLandscape ? 7 : 1,
+          child: Stack(
+            fit: StackFit.expand,
+            alignment: Alignment.center,
+            children: [
+              // 1. Full camera preview with correct aspect ratio
+              Positioned.fill(
+                child: _buildCameraPreview(fit: BoxFit.contain),
               ),
-            ),
+
+              // 2. HUD Overlay (Corner brackets reticle, shutter badge, unified status capsule)
+              Positioned.fill(
+                child: ScannerHudOverlay(
+                  isLandscape: true,
+                  isProcessing: _isProcessing,
+                  isCapturing: _isCapturing,
+                  isEasyMode: _isEasyMode,
+                  countdown: _countdown,
+                  statusMessage: _statusMessage,
+                  feedbackColor: _feedbackColor,
+                  onTriggerScan: _triggerScan,
+                  compact: true,
+                ),
+              ),
+
+              // 3. Floating Quick Stats & Drawer Opener (when student list is collapsed)
+              if (!_showStudentListInLandscape)
+                Positioned(
+                  top: 12,
+                  left: 14,
+                  child: _buildFloatingStatsPill(),
+                ),
+
+              // 4. Floating Complete Button (when student list is collapsed)
+              if (!_showStudentListInLandscape)
+                Positioned(
+                  top: 12,
+                  left: 170,
+                  child: _buildFloatingCompleteButton(),
+                ),
+            ],
           ),
         ),
 
-        // Right: Stats, Tabs, Live Student Lists, and Action Button
-        Expanded(
-          flex: 5,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 12, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+        // Slide-in Student List Panel
+        if (_showStudentListInLandscape)
+          Expanded(
+            flex: 5,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 12, 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  children: [
+                    // Header with Close / Fullscreen button
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Attendance List",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, size: 20),
+                            tooltip: "Full Camera View",
+                            onPressed: () {
+                              setState(() {
+                                _showStudentListInLandscape = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    AttendanceStatsCard(
+                      totalCount: _records.length,
+                      presentCount: _presentRegisterNumbers.length,
+                      compact: true,
+                    ),
+                    Expanded(
+                      child: ScannerStudentTabs(
+                        tabController: _tabController,
+                        presentList: presentList,
+                        absentList: absentList,
+                      ),
+                    ),
+                    _buildEndAttendanceButton(compact: true),
+                  ],
+                ),
               ),
-              child: Column(
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Floating Stats Pill in Landscape Mode
+  Widget _buildFloatingStatsPill() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showStudentListInLandscape = true;
+          });
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  AttendanceStatsCard(
-                    totalCount: _records.length,
-                    presentCount: _presentStudentIds.length,
-                    compact: true,
-                  ),
-                  Expanded(
-                    child: ScannerStudentTabs(
-                      tabController: _tabController,
-                      presentList: presentList,
-                      absentList: absentList,
+                  Icon(Icons.people_alt_rounded, size: 14, color: AppColors.present),
+                  const SizedBox(width: 5),
+                  Text(
+                    "${_presentRegisterNumbers.length}/${_records.length} Present",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  _buildEndAttendanceButton(compact: true),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Colors.white70),
                 ],
               ),
             ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  /// Floating Complete Button in Landscape Mode
+  Widget _buildFloatingCompleteButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _confirmEndAttendance,
+        borderRadius: BorderRadius.circular(20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 14, color: Colors.white),
+                  SizedBox(width: 5),
+                  Text(
+                    "Complete",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -704,7 +871,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
                 fit: StackFit.expand,
                 alignment: Alignment.center,
                 children: [
-                  _buildCameraPreview(),
+                  _buildCameraPreview(fit: BoxFit.cover),
                   ScannerHudOverlay(
                     isLandscape: false,
                     isProcessing: _isProcessing,
@@ -729,7 +896,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: AttendanceStatsCard(
             totalCount: _records.length,
-            presentCount: _presentStudentIds.length,
+            presentCount: _presentRegisterNumbers.length,
             compact: false,
           ),
         ),
@@ -750,11 +917,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     );
   }
 
-  /// Camera Feed Preview with Proper Aspect Ratio
-  Widget _buildCameraPreview() {
+  /// Camera Feed Preview with Proper Aspect Ratio and BoxFit
+  Widget _buildCameraPreview({BoxFit fit = BoxFit.contain}) {
     return ScannerCameraView(
       controller: _cameraController,
       isInitialized: _isControllerInitialized,
+      fit: fit,
     );
   }
 

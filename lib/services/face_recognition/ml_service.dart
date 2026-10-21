@@ -50,10 +50,10 @@ class MLService {
         ? basename.substring(0, basename.lastIndexOf('.'))
         : basename;
     final parts = nameWithoutExt.split('_');
-    final studentId = parts[0];
-    final name = parts.length > 1 ? parts.sublist(1).join(' ') : studentId;
+    final registerNumber = parts[0];
+    final name = parts.length > 1 ? parts.sublist(1).join(' ') : registerNumber;
     return {
-      'student_id': studentId,
+      'register_number': registerNumber,
       'name': name,
     };
   }
@@ -105,7 +105,7 @@ class MLService {
   /// Enroll a user directly from image bytes
   Future<User> enrollFromImageBytes({
     required Uint8List bytes,
-    required String studentId,
+    required String registerNumber,
     required String name,
     String? email,
     String? phone,
@@ -120,7 +120,7 @@ class MLService {
       landmarks: faceData?.landmarks,
     );
     final user = User(
-      id: studentId,
+      registerNumber: registerNumber,
       name: name,
       email: email,
       phone: phone,
@@ -130,12 +130,13 @@ class MLService {
     return user;
   }
 
+
   /// Match identity directly from image bytes
   Future<RecognitionResult> recognizeFromImageBytes(
     Uint8List bytes, {
     int k = 5,
     int? sensorOrientation,
-    Set<String>? allowedStudentIds,
+    Set<String>? allowedRegisterNumbers,
   }) async {
     await _embeddingService.ensureInitialized();
     final faceData = await detectFaceOnImageBytes(bytes, sensorOrientation: sensorOrientation);
@@ -145,7 +146,7 @@ class MLService {
       boundingBox: faceData?.boundingBox,
       landmarks: faceData?.landmarks,
     );
-    return recognizeFace(embedding, k: k, allowedStudentIds: allowedStudentIds);
+    return recognizeFace(embedding, k: k, allowedRegisterNumbers: allowedRegisterNumbers);
   }
 
   /// Get 512-dim ArcFace embedding directly from raw image bytes via compute isolate
@@ -196,18 +197,18 @@ class MLService {
   List<RecognitionMatch> searchEmbedding(
     List<double> queryEmbedding, {
     int k = 5,
-    Set<String>? allowedStudentIds,
+    Set<String>? allowedRegisterNumbers,
   }) {
-    return _matcher.search(queryEmbedding, k: k, allowedStudentIds: allowedStudentIds);
+    return _matcher.search(queryEmbedding, k: k, allowedRegisterNumbers: allowedRegisterNumbers);
   }
 
   /// Recognize face using ArcFace pipeline logic
   RecognitionResult recognizeFace(
     List<double> faceEmbedding, {
     int k = 5,
-    Set<String>? allowedStudentIds,
+    Set<String>? allowedRegisterNumbers,
   }) {
-    return _matcher.match(faceEmbedding, k: k, allowedStudentIds: allowedStudentIds);
+    return _matcher.match(faceEmbedding, k: k, allowedRegisterNumbers: allowedRegisterNumbers);
   }
 
   /// Compare embedding against registered users

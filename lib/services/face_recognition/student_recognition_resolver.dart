@@ -6,45 +6,28 @@ import 'package:face_att/models/student.dart';
 class StudentRecognitionResolver {
   StudentRecognitionResolver._();
 
-  /// Resolves a [RecognitionResult] to a [Student] model by cross-referencing
-  /// in-memory [enrolledStudents] first, and falling back to the [studentRepo].
+  /// Resolves a [RecognitionResult] to a [Student] model strictly by [registerNumber]
+  /// by cross-referencing in-memory [enrolledStudents] first, and falling back to the [studentRepo].
   static Future<Student?> resolveStudentForResult({
     required RecognitionResult result,
     required List<Student> enrolledStudents,
     required StudentRepository studentRepo,
   }) async {
-    final candidateId = result.studentId;
-    if (candidateId == null || candidateId.trim().isEmpty) return null;
+    final candidateRegNo = result.registerNumber;
+    if (candidateRegNo == null || candidateRegNo.trim().isEmpty) return null;
 
-    final trimmedId = candidateId.trim();
-    final lowerId = trimmedId.toLowerCase();
-    final candidateNameLower = result.name.trim().toLowerCase();
-    final parsedId = int.tryParse(trimmedId);
+    final trimmedRegNo = candidateRegNo.trim();
+    final upperRegNo = trimmedRegNo.toUpperCase();
 
-    // 1. Search in-memory enrolled students by numeric ID
-    Student? matched;
-    if (parsedId != null) {
-      matched = enrolledStudents.where((s) => s.id == parsedId).firstOrNull;
-    }
-
-    // 2. Search in-memory enrolled students by register number (case-insensitive)
-    matched ??= enrolledStudents.where(
-      (s) => s.registerNumber.trim().toLowerCase() == lowerId,
+    // 1. Search in-memory enrolled students strictly by register number (case-insensitive)
+    Student? matched = enrolledStudents.where(
+      (s) => s.registerNumber.trim().toUpperCase() == upperRegNo,
     ).firstOrNull;
 
-    // 3. Search in-memory enrolled students by student name (case-insensitive)
-    matched ??= enrolledStudents.where(
-      (s) => s.name.trim().toLowerCase() == candidateNameLower,
-    ).firstOrNull;
-
-    // 4. Fallback to persistent database queries if not found in memory
-    if (matched == null) {
-      if (parsedId != null) {
-        matched = await studentRepo.getStudentById(parsedId);
-      }
-      matched ??= await studentRepo.getStudentByRegisterNumber(trimmedId);
-    }
+    // 2. Query persistent database strictly by register number
+    matched ??= await studentRepo.getStudentByRegisterNumber(trimmedRegNo);
 
     return matched;
   }
 }
+

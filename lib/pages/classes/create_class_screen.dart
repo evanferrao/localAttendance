@@ -32,7 +32,7 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
   List<Student> _allStudents = [];
 
   final Set<int> _selectedTeacherIds = {};
-  final Set<int> _selectedStudentIds = {};
+  final Set<String> _selectedStudentRegisterNumbers = {};
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -82,9 +82,9 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
       context,
       MaterialPageRoute(builder: (_) => const CreateStudentScreen()),
     );
-    if (created != null && created.id != null) {
+    if (created != null && created.registerNumber.isNotEmpty) {
       await _loadData();
-      setState(() => _selectedStudentIds.add(created.id!));
+      setState(() => _selectedStudentRegisterNumbers.add(created.registerNumber));
     }
   }
 
@@ -106,7 +106,7 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
       final newClass = await _classRepo.createClass(
         name: _nameController.text.trim(),
         teacherIds: _selectedTeacherIds.toList(),
-        studentIds: _selectedStudentIds.toList(),
+        studentRegisterNumbers: _selectedStudentRegisterNumbers.toList(),
       );
 
       if (!mounted) return;
@@ -221,13 +221,13 @@ class _CreateClassScreenState extends State<CreateClassScreen> {
                     // Students Section
                     ClassStudentSelector(
                       students: _allStudents,
-                      selectedStudentIds: _selectedStudentIds,
-                      onStudentToggled: (id) {
+                      selectedRegisterNumbers: _selectedStudentRegisterNumbers,
+                      onStudentToggled: (reg) {
                         setState(() {
-                          if (_selectedStudentIds.contains(id)) {
-                            _selectedStudentIds.remove(id);
+                          if (_selectedStudentRegisterNumbers.contains(reg)) {
+                            _selectedStudentRegisterNumbers.remove(reg);
                           } else {
-                            _selectedStudentIds.add(id);
+                            _selectedStudentRegisterNumbers.add(reg);
                           }
                         });
                       },

@@ -100,7 +100,7 @@ class AttendanceService {
   /// Enforces class membership and prevents duplicate attendance writes.
   Future<MarkAttendanceResult> markStudentPresent({
     required int sessionId,
-    required int studentId,
+    required String registerNumber,
   }) async {
     final session = await _sessionRepo.getSessionById(sessionId);
     if (session == null || !session.isActive) {
@@ -108,7 +108,7 @@ class AttendanceService {
     }
 
     // Check if student belongs to the class
-    final isEnrolled = await _classRepo.isStudentEnrolledInClass(studentId, session.classId);
+    final isEnrolled = await _classRepo.isStudentEnrolledInClass(registerNumber, session.classId);
     if (!isEnrolled) {
       return MarkAttendanceResult.studentNotInClass;
     }
@@ -116,7 +116,7 @@ class AttendanceService {
     final now = DateTime.now().toIso8601String();
     final updated = await _recordRepo.markStudentPresent(
       sessionId: sessionId,
-      studentId: studentId,
+      registerNumber: registerNumber,
       attendanceTime: now,
     );
 
@@ -126,6 +126,7 @@ class AttendanceService {
       return MarkAttendanceResult.alreadyPresent;
     }
   }
+
 
   /// Complete active session
   Future<AttendanceSession> completeSession(int sessionId) async {

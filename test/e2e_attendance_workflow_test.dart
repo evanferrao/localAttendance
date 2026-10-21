@@ -96,45 +96,63 @@ void main() {
       email: 'priya@example.com',
       phone: '9876543212',
     );
+    // Student without a name (name is optional in the app)
+    final studentNameless = await studentRepo.createStudent(
+      registerNumber: '23BRS1003',
+      name: '',
+      email: '',
+      phone: '',
+    );
 
     // Generate distinct synthetic 512D unit vectors for face recognition
     final mlService = MLService();
     final piyushEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 10 ? 1.0 : 0.0));
     final arunEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 20 ? 1.0 : 0.0));
     final priyaEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 30 ? 1.0 : 0.0));
+    final namelessEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 50 ? 1.0 : 0.0));
     final unknownEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 99 ? 1.0 : 0.0));
 
-    // Enroll into Hive (keying by registerNumber and studentId)
+    // Enroll into Hive (keying strictly by registerNumber)
     await LocalDB.saveUser(User(
-      id: studentPiyush.registerNumber,
+      registerNumber: studentPiyush.registerNumber,
       name: studentPiyush.name,
       email: studentPiyush.email,
       phone: studentPiyush.phone,
       array: piyushEmbedding,
     ));
     await LocalDB.saveUser(User(
-      id: studentArun.registerNumber,
+      registerNumber: studentArun.registerNumber,
       name: studentArun.name,
       email: studentArun.email,
       phone: studentArun.phone,
       array: arunEmbedding,
     ));
     await LocalDB.saveUser(User(
-      id: studentPriya.registerNumber,
+      registerNumber: studentPriya.registerNumber,
       name: studentPriya.name,
       email: studentPriya.email,
       phone: studentPriya.phone,
       array: priyaEmbedding,
     ));
+    await LocalDB.saveUser(User(
+      registerNumber: studentNameless.registerNumber,
+      name: studentNameless.name,
+      array: namelessEmbedding,
+    ));
 
-    // 5. Create Class containing Piyush, Arun, Priya
+    // 5. Create Class containing Piyush, Arun, Priya, and Nameless
     final classA = await classRepo.createClass(
       name: 'B.Tech CSE - Section A',
       teacherIds: [defaultTeacher.id!],
-      studentIds: [studentPiyush.id!, studentArun.id!, studentPriya.id!],
+      studentRegisterNumbers: [
+        studentPiyush.registerNumber,
+        studentArun.registerNumber,
+        studentPriya.registerNumber,
+        studentNameless.registerNumber,
+      ],
     );
     expect(classA.id, isNotNull);
-    expect(classA.studentsCount, equals(3));
+    expect(classA.studentsCount, equals(4));
 
     // Also create outside student not in Class A
     final outsideStudent = await studentRepo.createStudent(
@@ -145,7 +163,7 @@ void main() {
     );
     final outsideEmbedding = mlService.l2Normalize(List.generate(512, (i) => i == 40 ? 1.0 : 0.0));
     await LocalDB.saveUser(User(
-      id: outsideStudent.registerNumber,
+      registerNumber: outsideStudent.registerNumber,
       name: outsideStudent.name,
       array: outsideEmbedding,
     ));
@@ -169,48 +187,48 @@ void main() {
     expect(session.id, isNotNull);
     expect(session.status, equals('active'));
 
-    // 9. Initial state: All 3 class students are initialized as absent with historical snapshot
+    // 9. Initial state: All 4 class students are initialized as absent with historical snapshot
     var summary = await attendanceService.getSessionSummary(session.id!);
-    expect(summary.totalCount, equals(3));
+    expect(summary.totalCount, equals(4));
     expect(summary.presentCount, equals(0));
-    expect(summary.absentCount, equals(3));
+    expect(summary.absentCount, equals(4));
 
     // 10. ML Recognition for Piyush
     final recPiyush = mlService.recognizeFace(piyushEmbedding);
     expect(recPiyush.accepted, isTrue);
-    expect(recPiyush.studentId, equals(studentPiyush.registerNumber));
+    expect(recPiyush.registerNumber, equals(studentPiyush.registerNumber));
     expect(recPiyush.score, greaterThanOrEqualTo(0.35));
 
     // Verify Piyush belongs to Class A and mark present
-    final piyushStudent = await studentRepo.getStudentByRegisterNumber(recPiyush.studentId!);
+    final piyushStudent = await studentRepo.getStudentByRegisterNumber(recPiyush.registerNumber!);
     expect(piyushStudent, isNotNull);
-    final isPiyushEnrolled = await classRepo.isStudentEnrolledInClass(piyushStudent!.id!, classA.id!);
+    final isPiyushEnrolled = await classRepo.isStudentEnrolledInClass(piyushStudent!.registerNumber, classA.id!);
     expect(isPiyushEnrolled, isTrue);
 
     final markPiyush1 = await attendanceService.markStudentPresent(
       sessionId: session.id!,
-      studentId: piyushStudent.id!,
+      registerNumber: piyushStudent.registerNumber,
     );
     expect(markPiyush1, equals(MarkAttendanceResult.markedPresent));
 
     // 11. Repeated recognition of Piyush -> In-memory & DB duplicate protection
     final markPiyush2 = await attendanceService.markStudentPresent(
       sessionId: session.id!,
-      studentId: piyushStudent.id!,
+      registerNumber: piyushStudent.registerNumber,
     );
     expect(markPiyush2, equals(MarkAttendanceResult.alreadyPresent));
 
     // 12. ML Recognition of Outside Student (enrolled in DB, but NOT enrolled in Class A)
     final recOutside = mlService.recognizeFace(outsideEmbedding);
     expect(recOutside.accepted, isTrue);
-    final outsideRecord = await studentRepo.getStudentByRegisterNumber(recOutside.studentId!);
-    final isOutsideEnrolled = await classRepo.isStudentEnrolledInClass(outsideRecord!.id!, classA.id!);
+    final outsideRecord = await studentRepo.getStudentByRegisterNumber(recOutside.registerNumber!);
+    final isOutsideEnrolled = await classRepo.isStudentEnrolledInClass(outsideRecord!.registerNumber, classA.id!);
     expect(isOutsideEnrolled, isFalse);
 
     // Rejection of outside student
     final markOutside = await attendanceService.markStudentPresent(
       sessionId: session.id!,
-      studentId: outsideRecord.id!,
+      registerNumber: outsideRecord.registerNumber,
     );
     expect(markOutside, equals(MarkAttendanceResult.studentNotInClass));
 
@@ -221,12 +239,24 @@ void main() {
     // 14. ML Recognition of second student Arun -> marked present
     final recArun = mlService.recognizeFace(arunEmbedding);
     expect(recArun.accepted, isTrue);
-    final arunStudent = await studentRepo.getStudentByRegisterNumber(recArun.studentId!);
+    final arunStudent = await studentRepo.getStudentByRegisterNumber(recArun.registerNumber!);
     final markArun = await attendanceService.markStudentPresent(
       sessionId: session.id!,
-      studentId: arunStudent!.id!,
+      registerNumber: arunStudent!.registerNumber,
     );
     expect(markArun, equals(MarkAttendanceResult.markedPresent));
+
+    // 14b. ML Recognition of nameless student (strictly via register number) -> marked present
+    final recNameless = mlService.recognizeFace(namelessEmbedding);
+    expect(recNameless.accepted, isTrue);
+    expect(recNameless.registerNumber, equals(studentNameless.registerNumber));
+    final namelessRecord = await studentRepo.getStudentByRegisterNumber(recNameless.registerNumber!);
+    expect(namelessRecord, isNotNull);
+    final markNameless = await attendanceService.markStudentPresent(
+      sessionId: session.id!,
+      registerNumber: namelessRecord!.registerNumber,
+    );
+    expect(markNameless, equals(MarkAttendanceResult.markedPresent));
 
     // 15. Priya was never scanned/recognized -> remains absent!
 
@@ -237,8 +267,8 @@ void main() {
 
     // 17. Final summary verification
     summary = await attendanceService.getSessionSummary(session.id!);
-    expect(summary.totalCount, equals(3));
-    expect(summary.presentCount, equals(2));
+    expect(summary.totalCount, equals(4));
+    expect(summary.presentCount, equals(3));
     expect(summary.absentCount, equals(1));
 
     // 18. Export JSON and verify complete class schema
@@ -251,7 +281,7 @@ void main() {
     expect(exportMap['attendance']['class']['name'], equals('B.Tech CSE - Section A'));
 
     final studentsExport = exportMap['students'] as List<dynamic>;
-    expect(studentsExport.length, equals(3));
+    expect(studentsExport.length, equals(4));
 
     // Piyush: present
     final piyushExport = studentsExport.firstWhere((s) => s['register_number'] == '23BRS1150');
@@ -263,6 +293,11 @@ void main() {
     expect(arunExport['status'], equals('present'));
     expect(arunExport['attendance_time'], isNotNull);
 
+    // Nameless: present
+    final namelessExport = studentsExport.firstWhere((s) => s['register_number'] == '23BRS1003');
+    expect(namelessExport['status'], equals('present'));
+    expect(namelessExport['attendance_time'], isNotNull);
+
     // Priya: absent with null attendance_time
     final priyaExport = studentsExport.firstWhere((s) => s['register_number'] == '23BRS1002');
     expect(priyaExport['status'], equals('absent'));
@@ -272,8 +307,8 @@ void main() {
     final history = await sessionRepo.getAllSessions();
     expect(history.length, equals(1));
     expect(history.first.id, equals(session.id));
-    expect(history.first.presentCount, equals(2));
-    expect(history.first.totalCount, equals(3));
+    expect(history.first.presentCount, equals(3));
+    expect(history.first.totalCount, equals(4));
 
     await db.close();
   });

@@ -9,6 +9,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:onnxruntime/onnxruntime.dart';
 
+final bool _isOnnxAvailable = () {
+  try {
+    OrtEnv.instance.init();
+    OrtEnv.instance.release();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}();
+
 void main() {
   group('MLService Cosine Similarity and Margin Pipeline', () {
     late MLService mlService;
@@ -38,11 +48,11 @@ void main() {
 
       // Mock match
       final match = RecognitionMatch(
-        studentId: 'STUDENT_01',
+        registerNumber: '23BRS1001',
         name: 'Alice',
         score: mlService.dotProduct(query, enrolled), // ~0.99
         index: 0,
-        user: User(id: 'STUDENT_01', name: 'Alice'),
+        user: const User(registerNumber: '23BRS1001', name: 'Alice'),
       );
 
       // Verify logic directly
@@ -124,11 +134,11 @@ void main() {
       session.release();
       sessionOptions.release();
       OrtEnv.instance.release();
-    });
+    }, skip: _isOnnxAvailable ? null : 'libonnxruntime not available on host');
 
     test('Parses 23BRS1150_PIYUSH_R_SAINI.jpeg identity correctly', () {
       final parsed = MLService.parseIdentityFromFilename('23BRS1150_PIYUSH_R_SAINI.jpeg');
-      expect(parsed['student_id'], '23BRS1150');
+      expect(parsed['register_number'], '23BRS1150');
       expect(parsed['name'], 'PIYUSH R SAINI');
     });
 
@@ -206,6 +216,6 @@ void main() {
       session.release();
       sessionOptions.release();
       OrtEnv.instance.release();
-    });
+    }, skip: _isOnnxAvailable ? null : 'libonnxruntime not available on host');
   });
 }

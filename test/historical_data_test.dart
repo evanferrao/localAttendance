@@ -96,7 +96,7 @@ void main() {
     final classA = await classRepo.createClass(
       name: 'Class A',
       teacherIds: [teacher.id!],
-      studentIds: [student1.id!, student2.id!],
+      studentRegisterNumbers: [student1.registerNumber, student2.registerNumber],
     );
 
     // 2. Start attendance session
@@ -109,19 +109,19 @@ void main() {
     // 3. Mark Student 1 present; Student 2 remains absent
     await attendanceService.markStudentPresent(
       sessionId: session.id!,
-      studentId: student1.id!,
+      registerNumber: student1.registerNumber,
     );
 
     // 4. Complete session
     await attendanceService.completeSession(session.id!);
 
     // 5. Remove Student 2 from Class A
-    await classRepo.removeStudentFromClass(classA.id!, student2.id!);
+    await classRepo.removeStudentFromClass(classA.id!, student2.registerNumber);
 
     // Verify current class membership now only has Student 1
-    final currentStudentsInClass = await classRepo.getStudentIdsForClass(classA.id!);
+    final currentStudentsInClass = await classRepo.getStudentRegisterNumbersForClass(classA.id!);
     expect(currentStudentsInClass.length, equals(1));
-    expect(currentStudentsInClass.contains(student2.id!), isFalse);
+    expect(currentStudentsInClass.contains(student2.registerNumber), isFalse);
 
     // 6. Open old attendance session
     final summary = await attendanceService.getSessionSummary(session.id!);
@@ -129,7 +129,7 @@ void main() {
     expect(summary.presentCount, equals(1));
     expect(summary.absentCount, equals(1));
 
-    final absentRecord = summary.absentRecords.firstWhere((r) => r.studentId == student2.id);
+    final absentRecord = summary.absentRecords.firstWhere((r) => r.registerNumber == student2.registerNumber);
     expect(absentRecord.studentRegisterNumber, equals('23BRS1002'));
     expect(absentRecord.studentName, equals('Student Two'));
     expect(absentRecord.status, equals('absent'));

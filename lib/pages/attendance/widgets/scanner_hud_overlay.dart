@@ -50,10 +50,10 @@ class ScannerHudOverlay extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final boxWidth = isLandscape
-            ? (constraints.maxWidth * 0.82).clamp(240.0, 520.0)
+            ? (constraints.maxWidth * 0.90).clamp(240.0, 1200.0)
             : (constraints.maxWidth * 0.68).clamp(200.0, 280.0);
         final boxHeight = isLandscape
-            ? (constraints.maxHeight * 0.72).clamp(180.0, 340.0)
+            ? (constraints.maxHeight * 0.82).clamp(180.0, 800.0)
             : (constraints.maxHeight * 0.68).clamp(220.0, 320.0);
 
         final frameColor = isProcessing

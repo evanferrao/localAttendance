@@ -10,33 +10,28 @@ class StudentRepository {
 
   Future<Database> get _db => _dbManager.database;
 
-  bool _isFaceEnrolled(String? studentId, String registerNumber) {
-    // Check if Hive has a user enrolled under register_number or id
-    final userByReg = LocalDB.getUser(registerNumber);
-    if (userByReg != null && userByReg.array != null && userByReg.array!.length == 512) {
-      return true;
-    }
-    if (studentId != null) {
-      final userById = LocalDB.getUser(studentId);
-      if (userById != null && userById.array != null && userById.array!.length == 512) {
-        return true;
-      }
-    }
-    return false;
+  bool _isFaceEnrolled(String registerNumber) {
+    // Check if Hive has a user enrolled strictly under register_number as primary key
+    final trimmedReg = registerNumber.trim();
+    final userByReg = LocalDB.getUser(trimmedReg) ??
+        LocalDB.getUser(trimmedReg.toUpperCase()) ??
+        LocalDB.getUser(trimmedReg.toLowerCase());
+    return userByReg != null && userByReg.array != null && userByReg.array!.length == 512;
   }
 
   Future<Student> createStudent({
     required String registerNumber,
-    required String name,
-    required String email,
-    required String phone,
+    String name = '',
+    String email = '',
+    String phone = '',
   }) async {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
-    final id = await db.insert(
+    final regTrimmed = registerNumber.trim();
+    await db.insert(
       DatabaseSchema.tableStudents,
       {
-        'register_number': registerNumber.trim(),
+        'register_number': regTrimmed,
         'name': name.trim(),
         'email': email.trim(),
         'phone': phone.trim(),
@@ -44,10 +39,9 @@ class StudentRepository {
       },
       conflictAlgorithm: ConflictAlgorithm.abort,
     );
-    final enrolled = _isFaceEnrolled(id.toString(), registerNumber.trim());
+    final enrolled = _isFaceEnrolled(regTrimmed);
     return Student(
-      id: id,
-      registerNumber: registerNumber.trim(),
+      registerNumber: regTrimmed,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -64,23 +58,9 @@ class StudentRepository {
     );
     return rows.map((r) {
       final s = Student.fromMap(r);
-      final enrolled = _isFaceEnrolled(s.id?.toString(), s.registerNumber);
+      final enrolled = _isFaceEnrolled(s.registerNumber);
       return s.copyWith(hasFaceEnrolled: enrolled);
     }).toList();
-  }
-
-  Future<Student?> getStudentById(int id) async {
-    final db = await _db;
-    final rows = await db.query(
-      DatabaseSchema.tableStudents,
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    final s = Student.fromMap(rows.first);
-    final enrolled = _isFaceEnrolled(s.id?.toString(), s.registerNumber);
-    return s.copyWith(hasFaceEnrolled: enrolled);
   }
 
   Future<Student?> getStudentByRegisterNumber(String registerNumber) async {
@@ -93,7 +73,7 @@ class StudentRepository {
     );
     if (rows.isEmpty) return null;
     final s = Student.fromMap(rows.first);
-    final enrolled = _isFaceEnrolled(s.id?.toString(), s.registerNumber);
+    final enrolled = _isFaceEnrolled(s.registerNumber);
     return s.copyWith(hasFaceEnrolled: enrolled);
   }
 
@@ -101,13 +81,13 @@ class StudentRepository {
     final db = await _db;
     final rows = await db.rawQuery('''
       SELECT s.* FROM ${DatabaseSchema.tableStudents} s
-      INNER JOIN ${DatabaseSchema.tableClassStudents} cs ON s.id = cs.student_id
+      INNER JOIN ${DatabaseSchema.tableClassStudents} cs ON s.register_number = cs.register_number
       WHERE cs.class_id = ?
       ORDER BY s.register_number ASC
     ''', [classId]);
     return rows.map((r) {
       final s = Student.fromMap(r);
-      final enrolled = _isFaceEnrolled(s.id?.toString(), s.registerNumber);
+      final enrolled = _isFaceEnrolled(s.registerNumber);
       return s.copyWith(hasFaceEnrolled: enrolled);
     }).toList();
   }
@@ -117,17 +97,18 @@ class StudentRepository {
     return await db.update(
       DatabaseSchema.tableStudents,
       student.toMap(),
-      where: 'id = ?',
-      whereArgs: [student.id],
+      where: 'register_number = ?',
+      whereArgs: [student.registerNumber],
     );
   }
 
-  Future<int> deleteStudent(int id) async {
+  Future<int> deleteStudent(String registerNumber) async {
     final db = await _db;
     return await db.delete(
       DatabaseSchema.tableStudents,
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'register_number = ?',
+      whereArgs: [registerNumber.trim()],
     );
   }
 }
+

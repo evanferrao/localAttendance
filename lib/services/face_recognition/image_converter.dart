@@ -212,8 +212,9 @@ class ImageConverter {
     if (decoded == null) {
       throw Exception("Failed to decode image bytes in isolate");
     }
+    final upright = img.bakeOrientation(decoded);
     return processImageForArcFace(
-      decoded,
+      upright,
       landmarks: params.landmarks,
       boundingBox: params.boundingBox,
       inputSize: params.inputSize,
@@ -221,16 +222,17 @@ class ImageConverter {
   }
 
   /// Batch preprocess multiple faces from a single image in a background isolate.
-  /// Decodes image once and applies landmark alignment/cropping for each face.
+  /// Decodes image once, bakes EXIF orientation, and applies landmark alignment/cropping for each face.
   static List<List<double>> preprocessMultipleFacesInIsolate(MultiFacePreprocessParams params) {
     final decoded = img.decodeImage(params.imageBytes);
     if (decoded == null) {
       throw Exception("Failed to decode image bytes in isolate");
     }
+    final upright = img.bakeOrientation(decoded);
     final results = <List<double>>[];
     for (int i = 0; i < params.boundingBoxes.length; i++) {
       final flat = processImageForArcFace(
-        decoded,
+        upright,
         landmarks: params.landmarksList[i],
         boundingBox: params.boundingBoxes[i],
         inputSize: params.inputSize,

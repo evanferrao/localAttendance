@@ -14,7 +14,8 @@ class FaceDetectorService {
   FaceDetector get detector {
     _faceDetector ??= FaceDetector(
       options: FaceDetectorOptions(
-        performanceMode: FaceDetectorMode.fast,
+        performanceMode: FaceDetectorMode.accurate,
+        minFaceSize: 0.02,
         enableLandmarks: true,
         enableClassification: false,
         enableTracking: false,
@@ -49,7 +50,8 @@ class FaceDetectorService {
   }
 
   /// Detect all faces and their 5 ArcFace landmarks from raw image bytes.
-  /// Features rotation-aware fallback so front-camera photos (oriented at 270°/90°) are detected reliably.
+  /// Bakes EXIF orientation and handles camera rotation so all detected faces
+  /// and landmarks match the image pixels precisely.
   /// Securely ensures all temporary files are erased even on exceptions.
   Future<List<DetectedFaceData>> detectAllFaces(
     Uint8List imageBytes, {
@@ -61,9 +63,30 @@ class FaceDetectorService {
       final tempDir = Directory.systemTemp;
       final uniqueId = DateTime.now().microsecondsSinceEpoch ^ Random.secure().nextInt(1000000);
       tempFile = File('${tempDir.path}/face_det_$uniqueId.jpg');
-      await tempFile.writeAsBytes(imageBytes);
 
-      // Attempt 1: Direct detection on captured image
+      // 1. Decode image and bake EXIF orientation so image pixels are physically upright.
+      // This ensures ML Kit bounding boxes and landmarks match the image pixels 1:1.
+      final decoded = img.decodeImage(imageBytes);
+      if (decoded == null) return [];
+      var upright = img.bakeOrientation(decoded);
+
+      // Downscale very large photos (e.g. > 1600px) to prevent OOM while keeping enough resolution
+      // for smaller faces across a classroom.
+      if (upright.width > 1600 || upright.height > 1600) {
+        final maxDim = max(upright.width, upright.height);
+        final scale = 1600.0 / maxDim;
+        upright = img.copyResize(
+          upright,
+          width: (upright.width * scale).round(),
+          height: (upright.height * scale).round(),
+          interpolation: img.Interpolation.linear,
+        );
+      }
+
+      final uprightBytes = Uint8List.fromList(img.encodeJpg(upright, quality: 90));
+      await tempFile.writeAsBytes(uprightBytes);
+
+      // Attempt 1: Direct detection on upright image
       var inputImage = InputImage.fromFilePath(tempFile.path);
       var faces = await d.processImage(inputImage);
 
@@ -74,63 +97,37 @@ class FaceDetectorService {
             boundingBox: face.boundingBox,
             landmarks: landmarks,
             mlKitFace: face,
-            correctedImageBytes: imageBytes,
+            correctedImageBytes: uprightBytes,
           );
         }).toList();
       }
 
-      // Attempt 2: Handle camera sensor rotation and EXIF orientation
-      final decoded = img.decodeImage(imageBytes);
-      if (decoded != null) {
-        var upright = img.bakeOrientation(decoded);
-        // Downscale large camera photos to max 1024px for fast rotation and ML Kit detection
-        if (upright.width > 1024 || upright.height > 1024) {
-          final maxDim = max(upright.width, upright.height);
-          final scale = 1024.0 / maxDim;
-          upright = img.copyResize(
-            upright,
-            width: (upright.width * scale).round(),
-            height: (upright.height * scale).round(),
-            interpolation: img.Interpolation.linear,
-          );
-        }
+      // Attempt 2: If no faces found at 0°, try rotations based on sensor orientation
+      final rotationsToTry = <int>[];
+      if (sensorOrientation != null && sensorOrientation != 0) {
+        rotationsToTry.add(sensorOrientation);
+      }
+      for (final a in [90, 180, 270]) {
+        if (!rotationsToTry.contains(a)) rotationsToTry.add(a);
+      }
 
-        final rotationsToTry = <int>[0];
-        if (sensorOrientation != null && sensorOrientation != 0 && !rotationsToTry.contains(sensorOrientation)) {
-          rotationsToTry.add(sensorOrientation);
-        }
-        if (!rotationsToTry.contains(270)) rotationsToTry.add(270);
-        if (!rotationsToTry.contains(90)) rotationsToTry.add(90);
-        if (!rotationsToTry.contains(180)) rotationsToTry.add(180);
+      for (final angle in rotationsToTry) {
+        final img.Image rotated = img.copyRotate(upright, angle: angle);
+        final rotatedBytes = Uint8List.fromList(img.encodeJpg(rotated, quality: 90));
+        await tempFile.writeAsBytes(rotatedBytes);
+        inputImage = InputImage.fromFilePath(tempFile.path);
+        faces = await d.processImage(inputImage);
 
-        for (final angle in rotationsToTry) {
-          final img.Image rotated;
-          if (angle == 90) {
-            rotated = img.copyRotate(upright, angle: 90);
-          } else if (angle == 180) {
-            rotated = img.copyRotate(upright, angle: 180);
-          } else if (angle == 270) {
-            rotated = img.copyRotate(upright, angle: 270);
-          } else {
-            rotated = upright;
-          }
-
-          final rotatedBytes = Uint8List.fromList(img.encodeJpg(rotated, quality: 85));
-          await tempFile.writeAsBytes(rotatedBytes);
-          inputImage = InputImage.fromFilePath(tempFile.path);
-          faces = await d.processImage(inputImage);
-
-          if (faces.isNotEmpty) {
-            return faces.map((face) {
-              final landmarks = extractArcFaceLandmarks(face);
-              return DetectedFaceData(
-                boundingBox: face.boundingBox,
-                landmarks: landmarks,
-                mlKitFace: face,
-                correctedImageBytes: rotatedBytes,
-              );
-            }).toList();
-          }
+        if (faces.isNotEmpty) {
+          return faces.map((face) {
+            final landmarks = extractArcFaceLandmarks(face);
+            return DetectedFaceData(
+              boundingBox: face.boundingBox,
+              landmarks: landmarks,
+              mlKitFace: face,
+              correctedImageBytes: rotatedBytes,
+            );
+          }).toList();
         }
       }
     } catch (e) {

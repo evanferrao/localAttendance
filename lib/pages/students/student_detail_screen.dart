@@ -35,20 +35,18 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    if (_student.id != null) {
-      final updated = await _studentRepo.getStudentById(_student.id!);
-      if (updated != null) _student = updated;
+    final updated = await _studentRepo.getStudentByRegisterNumber(_student.registerNumber);
+    if (updated != null) _student = updated;
 
-      final allClasses = await _classRepo.getAllClasses();
-      final enrolledClasses = <ClassModel>[];
-      for (final c in allClasses) {
-        if (c.id != null) {
-          final isEnrolled = await _classRepo.isStudentEnrolledInClass(_student.id!, c.id!);
-          if (isEnrolled) enrolledClasses.add(c);
-        }
+    final allClasses = await _classRepo.getAllClasses();
+    final enrolledClasses = <ClassModel>[];
+    for (final c in allClasses) {
+      if (c.id != null) {
+        final isEnrolled = await _classRepo.isStudentEnrolledInClass(_student.registerNumber, c.id!);
+        if (isEnrolled) enrolledClasses.add(c);
       }
-      _classes = enrolledClasses;
     }
+    _classes = enrolledClasses;
 
     if (mounted) {
       setState(() => _isLoading = false);
@@ -57,7 +55,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
   Future<void> _enrollWithCamera() async {
     final user = User(
-      id: _student.id?.toString() ?? _student.registerNumber,
+      registerNumber: _student.registerNumber,
       name: _student.name,
       email: _student.email,
       phone: _student.phone,
@@ -107,7 +105,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: Text(_student.name),
+        title: Text(_student.displayName),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: colorScheme.primary))
@@ -135,7 +133,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _student.name,
+                                    _student.displayName,
                                     style: TextStyle(
                                       color: colorScheme.onSurface,
                                       fontSize: 20,
@@ -161,10 +159,14 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                           height: 32,
                         ),
 
-                        _infoRow(Icons.email_outlined, _student.email, colorScheme),
-                        const SizedBox(height: 12),
-                        _infoRow(Icons.phone_outlined, _student.phone, colorScheme),
-                        const SizedBox(height: 12),
+                        if (_student.email.isNotEmpty) ...[
+                          _infoRow(Icons.email_outlined, _student.email, colorScheme),
+                          const SizedBox(height: 12),
+                        ],
+                        if (_student.phone.isNotEmpty) ...[
+                          _infoRow(Icons.phone_outlined, _student.phone, colorScheme),
+                          const SizedBox(height: 12),
+                        ],
 
                         Row(
                           children: [

@@ -121,7 +121,7 @@ void main() {
       final classA = await classRepo.createClass(
         name: 'B.Tech CSE - Section A',
         teacherIds: [teacher.id!],
-        studentIds: [arun.id!, priya.id!, rahul.id!],
+        studentRegisterNumbers: [arun.registerNumber, priya.registerNumber, rahul.registerNumber],
       );
 
       // 2. Start session
@@ -134,11 +134,11 @@ void main() {
       // 3. Mark Arun and Priya present, leave Rahul absent
       await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: arun.id!,
+        registerNumber: arun.registerNumber,
       );
       await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: priya.id!,
+        registerNumber: priya.registerNumber,
       );
 
       // 4. Complete session

@@ -34,7 +34,7 @@ Future<void> main(List<String> args) async {
 
     if (targetFile.existsSync() && targetFile.lengthSync() > 0) {
       final sizeMb = (targetFile.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
-      stdout.writeln('✓ $modelName already exists (${sizeMb} MB). Skipping.');
+      stdout.writeln('✓ $modelName already exists ($sizeMb MB). Skipping.');
       continue;
     }
 
@@ -46,7 +46,7 @@ Future<void> main(List<String> args) async {
       if (tempFile.existsSync() && tempFile.lengthSync() > 0) {
         tempFile.renameSync(targetFile.path);
         final sizeMb = (targetFile.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
-        stdout.writeln('✓ Successfully downloaded $modelName (${sizeMb} MB)');
+        stdout.writeln('✓ Successfully downloaded $modelName ($sizeMb MB)');
       } else {
         stderr.writeln('✗ Download completed but file is empty for $modelName');
       }

@@ -5,7 +5,7 @@ import 'package:face_att/utils/local_db.dart';
 import 'package:image_picker/image_picker.dart';
 
 /// Centralized service for enrolling student faces from camera or photo.
-/// Enforces dual-key indexing (student ID and register number) in local storage for fast O(1) lookup.
+/// Uses registerNumber strictly as the unique primary key in local storage.
 class FaceEnrollmentService {
   final MLService _mlService;
   final ImagePicker _picker;
@@ -23,20 +23,19 @@ class FaceEnrollmentService {
     if (xFile == null) return null;
 
     final bytes = await xFile.readAsBytes();
-    final studentKey = student.id?.toString() ?? student.registerNumber;
+    final regNo = student.registerNumber.trim();
 
     final user = await _mlService.enrollFromImageBytes(
       bytes: bytes,
-      studentId: studentKey,
+      registerNumber: regNo,
       name: student.name,
       email: student.email,
       phone: student.phone,
     );
 
-    // Enforce dual-key index under registerNumber
-    await saveDualKeyEmbedding(
-      studentId: student.id?.toString() ?? student.registerNumber,
-      registerNumber: student.registerNumber,
+    // Save strictly under registerNumber as the only primary key
+    await saveRegistrationEmbedding(
+      registerNumber: regNo,
       name: student.name,
       email: student.email,
       phone: student.phone,
@@ -46,15 +45,14 @@ class FaceEnrollmentService {
     return user;
   }
 
-  /// Synchronize dual-key indexing after a camera enrollment session.
+  /// Synchronize indexing after a camera enrollment session.
   Future<void> syncAfterCameraEnrollment(Student student) async {
-    final primaryKey = student.id?.toString() ?? student.registerNumber;
-    final enrolledUser = LocalDB.getUser(primaryKey);
+    final regNo = student.registerNumber.trim();
+    final enrolledUser = LocalDB.getUser(regNo);
 
     if (enrolledUser != null && enrolledUser.array != null) {
-      await saveDualKeyEmbedding(
-        studentId: primaryKey,
-        registerNumber: student.registerNumber,
+      await saveRegistrationEmbedding(
+        registerNumber: regNo,
         name: student.name,
         email: student.email,
         phone: student.phone,
@@ -63,9 +61,8 @@ class FaceEnrollmentService {
     }
   }
 
-  /// Stores face embedding under both student ID and register number in LocalDB.
-  static Future<void> saveDualKeyEmbedding({
-    required String studentId,
+  /// Stores face embedding strictly keyed by register number in LocalDB.
+  static Future<void> saveRegistrationEmbedding({
     required String registerNumber,
     required String name,
     String? email,
@@ -74,24 +71,15 @@ class FaceEnrollmentService {
   }) async {
     if (embedding == null || embedding.length != 512) return;
 
-    // 1. Primary entry
+    final regTrimmed = registerNumber.trim();
+
     await LocalDB.saveUser(User(
-      id: studentId,
+      registerNumber: regTrimmed,
       name: name,
       email: email,
       phone: phone,
       array: embedding,
     ));
-
-    // 2. Register number entry if different from studentId
-    if (studentId != registerNumber) {
-      await LocalDB.saveUser(User(
-        id: registerNumber,
-        name: name,
-        email: email,
-        phone: phone,
-        array: embedding,
-      ));
-    }
   }
 }
+

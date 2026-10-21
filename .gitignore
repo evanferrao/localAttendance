@@ -50,3 +50,8 @@ app.*.map.json
 # ONNX Models (downloaded automatically during build)
 assets/*.onnx
 *.onnx
+
+# Student photos and import archives (excluded for privacy/consent)
+output/
+newzip/
+*.zip

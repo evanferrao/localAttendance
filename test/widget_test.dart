@@ -4,7 +4,7 @@ import 'package:face_att/models/user.dart';
 void main() {
   test('User serialization and initialization test', () {
     final user = User(
-      id: 'USER_101',
+      registerNumber: '23BRS1001',
       name: 'John Doe',
       email: 'john@example.com',
       phone: '1234567890',
@@ -12,12 +12,12 @@ void main() {
     );
 
     final map = user.toMap();
-    expect(map['id'], 'USER_101');
+    expect(map['register_number'], '23BRS1001');
     expect(map['name'], 'John Doe');
     expect((map['array'] as List).length, 512);
 
     final fromMap = User.fromMap(map);
-    expect(fromMap.id, 'USER_101');
+    expect(fromMap.registerNumber, '23BRS1001');
     expect(fromMap.name, 'John Doe');
     expect(fromMap.array?.length, 512);
   });

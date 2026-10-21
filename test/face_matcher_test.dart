@@ -59,32 +59,32 @@ void main() {
       student2Embedding[1] = 1.0;
 
       testUsers = [
-        User(id: 'STU1', name: 'Alice Smith', array: student1Embedding),
-        User(id: 'STU2', name: 'Bob Jones', array: student2Embedding),
+        User(registerNumber: '23BRS1150', name: 'Alice Smith', array: student1Embedding),
+        User(registerNumber: '23BRS1001', name: 'Bob Jones', array: student2Embedding),
       ];
     });
 
-    test('search finds top matching student', () {
+    test('search finds top matching student by registerNumber', () {
       final query = List<double>.filled(512, 0.0)..[0] = 0.95..[1] = 0.05;
       final results = matcher.search(query, enrolledUsers: testUsers);
 
       expect(results.isNotEmpty, isTrue);
-      expect(results.first.studentId, equals('STU1'));
+      expect(results.first.registerNumber, equals('23BRS1150'));
       expect(results.first.name, equals('Alice Smith'));
       expect(results.first.score, greaterThan(0.9));
     });
 
-    test('search filters out students not in allowedStudentIds', () {
+    test('search filters out students not in allowedRegisterNumbers', () {
       final query = List<double>.filled(512, 0.0)..[0] = 1.0;
-      // Only STU2 is in the active class
+      // Only 23BRS1001 is in the active class
       final results = matcher.search(
         query,
-        allowedStudentIds: {'STU2'},
+        allowedRegisterNumbers: {'23BRS1001'},
         enrolledUsers: testUsers,
       );
 
       expect(results.length, equals(1));
-      expect(results.first.studentId, equals('STU2'));
+      expect(results.first.registerNumber, equals('23BRS1001'));
     });
 
     test('match accepts candidate exceeding similarity threshold and margin', () {
@@ -92,7 +92,7 @@ void main() {
       final result = matcher.match(query, enrolledUsers: testUsers);
 
       expect(result.accepted, isTrue);
-      expect(result.studentId, equals('STU1'));
+      expect(result.registerNumber, equals('23BRS1150'));
       expect(result.name, equals('Alice Smith'));
       expect(result.score, closeTo(1.0, 1e-5));
       expect(result.margin, greaterThanOrEqualTo(0.05));
@@ -104,8 +104,67 @@ void main() {
       final result = matcher.match(query, enrolledUsers: testUsers);
 
       expect(result.accepted, isFalse);
-      expect(result.studentId, isNull);
+      expect(result.registerNumber, isNull);
       expect(result.name, equals('Unknown'));
+    });
+
+    test('match accepts candidate when duplicate entries exist for the same student', () {
+      final multiUsers = [
+        User(registerNumber: '23BRS1150', name: '', array: student1Embedding),
+        User(registerNumber: '23BRS1150', name: '', array: student1Embedding),
+        User(registerNumber: '23BRS1001', name: 'Bob Jones', array: student2Embedding),
+      ];
+
+      final query = List<double>.filled(512, 0.0)..[0] = 1.0;
+      final result = matcher.match(query, enrolledUsers: multiUsers);
+
+      expect(result.accepted, isTrue);
+      expect(result.registerNumber, equals('23BRS1150'));
+      expect(result.score, closeTo(1.0, 1e-5));
+      expect(result.secondScore, closeTo(0.0, 1e-5));
+      expect(result.margin, closeTo(1.0, 1e-5));
+    });
+
+    test('User.fromMap safely handles register_number and numbers in array from Hive/JSON', () {
+      final map = {
+        'register_number': '23BRS1150',
+        'name': 'Test Student',
+        'email': 'test@example.com',
+        'phone': '1234567890',
+        'array': [0, 1, 0.5, 2],
+      };
+
+      final user = User.fromMap(map);
+      expect(user.registerNumber, equals('23BRS1150'));
+      expect(user.array, isNotNull);
+      expect(user.array!, equals([0.0, 1.0, 0.5, 2.0]));
+      expect(user.array!.first, isA<double>());
+    });
+
+    test('students without names are matched strictly by registration number', () {
+      // Students with null and empty names
+      final namelessUsers = [
+        User(registerNumber: '23BRS1150', name: null, array: student1Embedding),
+        User(registerNumber: '23BRS1001', name: '', array: student2Embedding),
+      ];
+
+      final query1 = List<double>.filled(512, 0.0)..[0] = 1.0;
+      final result1 = matcher.match(query1, enrolledUsers: namelessUsers);
+
+      expect(result1.accepted, isTrue);
+      expect(result1.registerNumber, equals('23BRS1150'));
+      expect(result1.name, equals('23BRS1150')); // Falls back to registration number
+      expect(result1.score, closeTo(1.0, 1e-5));
+
+      final query2 = List<double>.filled(512, 0.0)..[1] = 1.0;
+      final result2 = matcher.match(query2, enrolledUsers: namelessUsers);
+
+      expect(result2.accepted, isTrue);
+      expect(result2.registerNumber, equals('23BRS1001'));
+      expect(result2.name, equals('23BRS1001')); // Falls back to registration number
+      expect(result2.score, closeTo(1.0, 1e-5));
     });
   });
 }
+
+

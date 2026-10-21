@@ -14,7 +14,7 @@ class ClassRepository {
   Future<ClassModel> createClass({
     required String name,
     required List<int> teacherIds,
-    List<int> studentIds = const [],
+    List<String> studentRegisterNumbers = const [],
   }) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -24,7 +24,7 @@ class ClassRepository {
     if (uniqueTeacherIds.isEmpty) {
       throw ArgumentError('A class must have at least one teacher assigned');
     }
-    final uniqueStudentIds = studentIds.toSet().toList();
+    final uniqueStudentRegNos = studentRegisterNumbers.map((r) => r.trim()).toSet().toList();
 
     final db = await _db;
     final now = DateTime.now().toIso8601String();
@@ -52,12 +52,12 @@ class ClassRepository {
       }
 
       // 3. Insert student memberships
-      for (final sId in uniqueStudentIds) {
+      for (final reg in uniqueStudentRegNos) {
         await txn.insert(
           DatabaseSchema.tableClassStudents,
           {
             'class_id': classId,
-            'student_id': sId,
+            'register_number': reg,
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
@@ -68,9 +68,9 @@ class ClassRepository {
         name: trimmedName,
         createdAt: now,
         teacherIds: uniqueTeacherIds,
-        studentIds: uniqueStudentIds,
+        studentRegisterNumbers: uniqueStudentRegNos,
         teachersCount: uniqueTeacherIds.length,
-        studentsCount: uniqueStudentIds.length,
+        studentsCount: uniqueStudentRegNos.length,
       );
     });
   }
@@ -81,7 +81,7 @@ class ClassRepository {
       SELECT 
         c.*,
         COUNT(DISTINCT ct.teacher_id) AS teacher_count,
-        COUNT(DISTINCT cs.student_id) AS student_count
+        COUNT(DISTINCT cs.register_number) AS student_count
       FROM ${DatabaseSchema.tableClasses} c
       LEFT JOIN ${DatabaseSchema.tableClassTeachers} ct ON c.id = ct.class_id
       LEFT JOIN ${DatabaseSchema.tableClassStudents} cs ON c.id = cs.class_id
@@ -118,18 +118,18 @@ class ClassRepository {
 
     final studentRows = await db.query(
       DatabaseSchema.tableClassStudents,
-      columns: ['student_id'],
+      columns: ['register_number'],
       where: 'class_id = ?',
       whereArgs: [id],
     );
-    final studentIds = studentRows.map((r) => r['student_id'] as int).toList();
+    final studentRegisterNumbers = studentRows.map((r) => r['register_number'] as String).toList();
 
     return ClassModel.fromMap(
       classRows.first,
       teacherIds: teacherIds,
-      studentIds: studentIds,
+      studentRegisterNumbers: studentRegisterNumbers,
       teachersCount: teacherIds.length,
-      studentsCount: studentIds.length,
+      studentsCount: studentRegisterNumbers.length,
     );
   }
 
@@ -139,7 +139,7 @@ class ClassRepository {
       SELECT 
         c.*,
         COUNT(DISTINCT ct2.teacher_id) AS teacher_count,
-        COUNT(DISTINCT cs.student_id) AS student_count
+        COUNT(DISTINCT cs.register_number) AS student_count
       FROM ${DatabaseSchema.tableClasses} c
       INNER JOIN ${DatabaseSchema.tableClassTeachers} ct ON c.id = ct.class_id
       LEFT JOIN ${DatabaseSchema.tableClassTeachers} ct2 ON c.id = ct2.class_id
@@ -169,26 +169,26 @@ class ClassRepository {
     return (count ?? 0) > 0;
   }
 
-  Future<bool> isStudentEnrolledInClass(int studentId, int classId) async {
+  Future<bool> isStudentEnrolledInClass(String registerNumber, int classId) async {
     final db = await _db;
     final count = Sqflite.firstIntValue(
       await db.rawQuery('''
         SELECT COUNT(*) FROM ${DatabaseSchema.tableClassStudents}
-        WHERE student_id = ? AND class_id = ?
-      ''', [studentId, classId]),
+        WHERE LOWER(register_number) = LOWER(?) AND class_id = ?
+      ''', [registerNumber.trim(), classId]),
     );
     return (count ?? 0) > 0;
   }
 
-  Future<List<int>> getStudentIdsForClass(int classId) async {
+  Future<List<String>> getStudentRegisterNumbersForClass(int classId) async {
     final db = await _db;
     final rows = await db.query(
       DatabaseSchema.tableClassStudents,
-      columns: ['student_id'],
+      columns: ['register_number'],
       where: 'class_id = ?',
       whereArgs: [classId],
     );
-    return rows.map((r) => r['student_id'] as int).toList();
+    return rows.map((r) => r['register_number'] as String).toList();
   }
 
   Future<List<int>> getTeacherIdsForClass(int classId) async {
@@ -224,21 +224,37 @@ class ClassRepository {
     );
   }
 
-  Future<void> assignStudentToClass(int classId, int studentId) async {
+  Future<void> assignStudentToClass(int classId, String registerNumber) async {
     final db = await _db;
     await db.insert(
       DatabaseSchema.tableClassStudents,
-      {'class_id': classId, 'student_id': studentId},
+      {'class_id': classId, 'register_number': registerNumber.trim()},
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
 
-  Future<void> removeStudentFromClass(int classId, int studentId) async {
+  Future<void> assignStudentsToClass(int classId, List<String> registerNumbers) async {
+    final uniqueRegs = registerNumbers.map((r) => r.trim()).where((r) => r.isNotEmpty).toSet();
+    if (uniqueRegs.isEmpty) return;
+
+    final db = await _db;
+    final batch = db.batch();
+    for (final reg in uniqueRegs) {
+      batch.insert(
+        DatabaseSchema.tableClassStudents,
+        {'class_id': classId, 'register_number': reg},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<void> removeStudentFromClass(int classId, String registerNumber) async {
     final db = await _db;
     await db.delete(
       DatabaseSchema.tableClassStudents,
-      where: 'class_id = ? AND student_id = ?',
-      whereArgs: [classId, studentId],
+      where: 'class_id = ? AND LOWER(register_number) = LOWER(?)',
+      whereArgs: [classId, registerNumber.trim()],
     );
   }
 
@@ -260,3 +276,4 @@ class ClassRepository {
     );
   }
 }
+

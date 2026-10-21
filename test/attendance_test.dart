@@ -109,7 +109,7 @@ void main() {
     testClass = await classRepo.createClass(
       name: 'B.Tech CSE - Section A',
       teacherIds: [authorizedTeacher.id!],
-      studentIds: [studentArun.id!, studentPriya.id!, studentRahul.id!],
+      studentRegisterNumbers: [studentArun.registerNumber, studentPriya.registerNumber, studentRahul.registerNumber],
     );
   });
 
@@ -162,7 +162,7 @@ void main() {
       // Mark Arun present in session 1
       await attendanceService.markStudentPresent(
         sessionId: session1.id!,
-        studentId: studentArun.id!,
+        registerNumber: studentArun.registerNumber,
       );
 
       // Call startOrResumeSession again for same class and date
@@ -189,11 +189,11 @@ void main() {
 
       final markResult = await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: studentArun.id!,
+        registerNumber: studentArun.registerNumber,
       );
       expect(markResult, equals(MarkAttendanceResult.markedPresent));
 
-      final record = await recordRepo.getRecord(session.id!, studentArun.id!);
+      final record = await recordRepo.getRecord(session.id!, studentArun.registerNumber);
       expect(record, isNotNull);
       expect(record!.status, equals('present'));
       expect(record.attendanceTime, isNotNull);
@@ -209,20 +209,20 @@ void main() {
 
       final firstMark = await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: studentArun.id!,
+        registerNumber: studentArun.registerNumber,
       );
       expect(firstMark, equals(MarkAttendanceResult.markedPresent));
 
       // Attempt second mark
       final secondMark = await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: studentArun.id!,
+        registerNumber: studentArun.registerNumber,
       );
       expect(secondMark, equals(MarkAttendanceResult.alreadyPresent));
 
       final records = await recordRepo.getRecordsForSession(session.id!);
       expect(records.length, equals(3));
-      final arunRecords = records.where((r) => r.studentId == studentArun.id).toList();
+      final arunRecords = records.where((r) => r.registerNumber == studentArun.registerNumber).toList();
       expect(arunRecords.length, equals(1));
     });
 
@@ -235,7 +235,7 @@ void main() {
 
       final markResult = await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: outsideStudent.id!,
+        registerNumber: outsideStudent.registerNumber,
       );
       expect(markResult, equals(MarkAttendanceResult.studentNotInClass));
 
@@ -253,7 +253,7 @@ void main() {
       // Only Arun is recognized
       await attendanceService.markStudentPresent(
         sessionId: session.id!,
-        studentId: studentArun.id!,
+        registerNumber: studentArun.registerNumber,
       );
 
       final completedSession = await attendanceService.completeSession(session.id!);
@@ -266,17 +266,17 @@ void main() {
       expect(summary.absentCount, equals(2));
 
       // Verify Arun
-      final arunRecord = summary.presentRecords.firstWhere((r) => r.studentId == studentArun.id);
+      final arunRecord = summary.presentRecords.firstWhere((r) => r.registerNumber == studentArun.registerNumber);
       expect(arunRecord.status, equals('present'));
       expect(arunRecord.attendanceTime, isNotNull);
 
       // Verify Priya
-      final priyaRecord = summary.absentRecords.firstWhere((r) => r.studentId == studentPriya.id);
+      final priyaRecord = summary.absentRecords.firstWhere((r) => r.registerNumber == studentPriya.registerNumber);
       expect(priyaRecord.status, equals('absent'));
       expect(priyaRecord.attendanceTime, isNull);
 
       // Verify Rahul
-      final rahulRecord = summary.absentRecords.firstWhere((r) => r.studentId == studentRahul.id);
+      final rahulRecord = summary.absentRecords.firstWhere((r) => r.registerNumber == studentRahul.registerNumber);
       expect(rahulRecord.status, equals('absent'));
       expect(rahulRecord.attendanceTime, isNull);
     });

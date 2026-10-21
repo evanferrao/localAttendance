@@ -3,7 +3,7 @@ class ClassModel {
   final String name;
   final String createdAt;
   final List<int> teacherIds;
-  final List<int> studentIds;
+  final List<String> studentRegisterNumbers;
   final int teachersCount;
   final int studentsCount;
 
@@ -12,7 +12,7 @@ class ClassModel {
     required this.name,
     required this.createdAt,
     this.teacherIds = const [],
-    this.studentIds = const [],
+    this.studentRegisterNumbers = const [],
     this.teachersCount = 0,
     this.studentsCount = 0,
   });
@@ -26,7 +26,7 @@ class ClassModel {
   factory ClassModel.fromMap(
     Map<String, dynamic> map, {
     List<int> teacherIds = const [],
-    List<int> studentIds = const [],
+    List<String> studentRegisterNumbers = const [],
     int? teachersCount,
     int? studentsCount,
   }) =>
@@ -35,9 +35,9 @@ class ClassModel {
         name: map['name'] as String,
         createdAt: map['created_at'] as String,
         teacherIds: teacherIds,
-        studentIds: studentIds,
+        studentRegisterNumbers: studentRegisterNumbers,
         teachersCount: teachersCount ?? teacherIds.length,
-        studentsCount: studentsCount ?? studentIds.length,
+        studentsCount: studentsCount ?? studentRegisterNumbers.length,
       );
 
   ClassModel copyWith({
@@ -45,7 +45,7 @@ class ClassModel {
     String? name,
     String? createdAt,
     List<int>? teacherIds,
-    List<int>? studentIds,
+    List<String>? studentRegisterNumbers,
     int? teachersCount,
     int? studentsCount,
   }) {
@@ -54,9 +54,10 @@ class ClassModel {
       name: name ?? this.name,
       createdAt: createdAt ?? this.createdAt,
       teacherIds: teacherIds ?? this.teacherIds,
-      studentIds: studentIds ?? this.studentIds,
+      studentRegisterNumbers: studentRegisterNumbers ?? this.studentRegisterNumbers,
       teachersCount: teachersCount ?? this.teachersCount,
       studentsCount: studentsCount ?? this.studentsCount,
     );
   }
 }
+

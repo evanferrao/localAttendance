@@ -5,14 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 
 class RecognitionMatch {
-  final String studentId;
+  final String registerNumber;
   final String name;
   final double score;
   final int index;
   final User? user;
 
   const RecognitionMatch({
-    required this.studentId,
+    required this.registerNumber,
     required this.name,
     required this.score,
     required this.index,
@@ -20,7 +20,7 @@ class RecognitionMatch {
   });
 
   Map<String, dynamic> toMap() => {
-        'student_id': studentId,
+        'register_number': registerNumber,
         'name': name,
         'score': score,
         'index': index,
@@ -29,7 +29,7 @@ class RecognitionMatch {
 
 class RecognitionResult {
   final bool accepted;
-  final String? studentId;
+  final String? registerNumber;
   final String name;
   final double score;
   final double secondScore;
@@ -39,7 +39,7 @@ class RecognitionResult {
 
   const RecognitionResult({
     required this.accepted,
-    this.studentId,
+    this.registerNumber,
     required this.name,
     required this.score,
     required this.secondScore,
@@ -48,6 +48,7 @@ class RecognitionResult {
     this.user,
   });
 }
+
 
 class DetectedFaceData {
   final Rect boundingBox;

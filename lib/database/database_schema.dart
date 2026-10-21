@@ -25,11 +25,10 @@ class DatabaseSchema {
     );
     ''',
 
-    // 2. Students
+    // 2. Students (register_number is the only primary key)
     '''
     CREATE TABLE $tableStudents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      register_number TEXT NOT NULL UNIQUE,
+      register_number TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL,
       phone TEXT NOT NULL,
@@ -57,14 +56,14 @@ class DatabaseSchema {
     );
     ''',
 
-    // 5. Class Students Junction
+    // 5. Class Students Junction (keyed by register_number)
     '''
     CREATE TABLE $tableClassStudents (
       class_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      PRIMARY KEY (class_id, student_id),
+      register_number TEXT NOT NULL,
+      PRIMARY KEY (class_id, register_number),
       FOREIGN KEY (class_id) REFERENCES $tableClasses(id) ON DELETE CASCADE,
-      FOREIGN KEY (student_id) REFERENCES $tableStudents(id) ON DELETE CASCADE
+      FOREIGN KEY (register_number) REFERENCES $tableStudents(register_number) ON DELETE CASCADE
     );
     ''',
 
@@ -83,21 +82,20 @@ class DatabaseSchema {
     );
     ''',
 
-    // 7. Attendance Records with Historical Snapshot
+    // 7. Attendance Records with Historical Snapshot (keyed by register_number)
     '''
     CREATE TABLE $tableAttendanceRecords (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
+      register_number TEXT NOT NULL,
       status TEXT NOT NULL,
       attendance_time TEXT,
-      student_register_number TEXT NOT NULL,
       student_name TEXT NOT NULL,
       student_email TEXT NOT NULL,
       student_phone TEXT NOT NULL,
-      UNIQUE(session_id, student_id),
+      UNIQUE(session_id, register_number),
       FOREIGN KEY (session_id) REFERENCES $tableAttendanceSessions(id) ON DELETE CASCADE,
-      FOREIGN KEY (student_id) REFERENCES $tableStudents(id) ON DELETE CASCADE
+      FOREIGN KEY (register_number) REFERENCES $tableStudents(register_number) ON DELETE CASCADE
     );
     ''',
 
@@ -105,9 +103,11 @@ class DatabaseSchema {
     'CREATE INDEX idx_class_teachers_class ON $tableClassTeachers(class_id);',
     'CREATE INDEX idx_class_teachers_teacher ON $tableClassTeachers(teacher_id);',
     'CREATE INDEX idx_class_students_class ON $tableClassStudents(class_id);',
-    'CREATE INDEX idx_class_students_student ON $tableClassStudents(student_id);',
+    'CREATE INDEX idx_class_students_reg ON $tableClassStudents(register_number);',
     'CREATE INDEX idx_attendance_sessions_class ON $tableAttendanceSessions(class_id);',
     'CREATE INDEX idx_attendance_sessions_date ON $tableAttendanceSessions(attendance_date);',
     'CREATE INDEX idx_attendance_records_session ON $tableAttendanceRecords(session_id);',
+    'CREATE INDEX idx_attendance_records_reg ON $tableAttendanceRecords(register_number);',
   ];
 }
+

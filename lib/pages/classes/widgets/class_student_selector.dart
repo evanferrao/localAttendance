@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 /// Reusable component for selecting students to enroll in a class.
 class ClassStudentSelector extends StatelessWidget {
   final List<Student> students;
-  final Set<int> selectedStudentIds;
-  final ValueChanged<int> onStudentToggled;
+  final Set<String> selectedRegisterNumbers;
+  final ValueChanged<String> onStudentToggled;
   final VoidCallback onNewStudent;
 
   const ClassStudentSelector({
     super.key,
     required this.students,
-    required this.selectedStudentIds,
+    required this.selectedRegisterNumbers,
     required this.onStudentToggled,
     required this.onNewStudent,
   });
@@ -31,7 +31,7 @@ class ClassStudentSelector extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  "Students (${selectedStudentIds.length} selected)",
+                  "Students (${selectedRegisterNumbers.length} selected)",
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 16,
@@ -58,7 +58,7 @@ class ClassStudentSelector extends StatelessWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: students.map((s) {
-                  final isSelected = selectedStudentIds.contains(s.id);
+                  final isSelected = selectedRegisterNumbers.contains(s.registerNumber);
                   return CheckboxListTile(
                     value: isSelected,
                     activeColor: colorScheme.primary,
@@ -74,7 +74,7 @@ class ClassStudentSelector extends StatelessWidget {
                       ),
                     ),
                     onChanged: (bool? val) {
-                      if (s.id != null) onStudentToggled(s.id!);
+                      onStudentToggled(s.registerNumber);
                     },
                   );
                 }).toList(),
@@ -85,3 +85,4 @@ class ClassStudentSelector extends StatelessWidget {
     );
   }
 }
+

@@ -165,7 +165,7 @@ class ThemeService extends ChangeNotifier {
           size: 20,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: (isAmoled && isDark) ? const Color(0xFF121212) : scheme.surfaceContainer,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -250,7 +250,7 @@ class ThemeService extends ChangeNotifier {
         labelStyle: TextStyle(color: scheme.onSurface),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: (isAmoled && isDark) ? const Color(0xFF141414) : scheme.surfaceContainerHigh,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

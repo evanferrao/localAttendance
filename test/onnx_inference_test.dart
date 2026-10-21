@@ -6,6 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:onnxruntime/onnxruntime.dart';
 
+final bool _isOnnxAvailable = () {
+  try {
+    OrtEnv.instance.init();
+    OrtEnv.instance.release();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}();
+
 void main() {
   test('ONNX Runtime matches Python output on sample_face_112.png', () async {
     OrtEnv.instance.init();
@@ -74,5 +84,5 @@ void main() {
     session.release();
     sessionOptions.release();
     OrtEnv.instance.release();
-  });
+  }, skip: _isOnnxAvailable ? null : 'libonnxruntime not available on host');
 }

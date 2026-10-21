@@ -35,24 +35,72 @@ Follow these steps to run the application on your local machine:
 3. Connect a physical device or start an emulator. Note: **Physical devices are highly recommended** for camera and ML performance testing.
 
 ### Setup Steps
-1. **Clone/Navigate to the project directory:**
+1. **Navigate to the project directory:**
    ```bash
-   cd /path/to/face_att
+   cd /path/to/localAttendance
    ```
 
 2. **Fetch Dependencies:**
    ```bash
-   flutter pub get
+   fvm flutter pub get
    ```
 
-3. **Run the App:**
+3. **Run the App (Debug Mode):**
    ```bash
-   flutter run
+   fvm flutter run
    ```
-   *To run in release mode for maximum performance:*
+
+4. **Run the App (Release Mode on Device):**
    ```bash
-   flutter run --release
+   fvm flutter run --release
    ```
+
+---
+
+## 📦 Building Release APKs (Compilation Guide)
+
+All Flutter commands in this project are managed via **FVM** and require Java 17 Temurin:
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk
+```
+
+### 1. Build Universal APK (All Architectures in One File)
+Builds a single APK containing native binaries and ONNX models for all ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`):
+```bash
+JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build apk --release
+```
+- **Output:** `build/app/outputs/flutter-apk/app-release.apk`
+- **Use Case:** Best when distributing one file that works on any Android phone, tablet, or emulator.
+
+---
+
+### 2. Build Per-Architecture APKs (Split per ABI)
+Splits the build into lightweight APKs tailored to specific CPU architectures:
+```bash
+JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build apk --split-per-abi --release
+```
+- **Outputs:**
+  - `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
+    $\rightarrow$ **ARM 64-bit (v8)**: Modern Android phones (Pixel, Samsung Galaxy, OnePlus, Xiaomi, etc.).
+  - `build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk`
+    $\rightarrow$ **ARM 32-bit (v7)**: Older budget Android devices.
+  - `build/app/outputs/flutter-apk/app-x86_64-release.apk`
+    $\rightarrow$ **x86 64-bit**: Android Emulators and Intel-based Chromebooks/tablets.
+- **Benefits:** Much smaller download size and faster install time since each APK only includes the binaries for that device's chip.
+
+---
+
+### 3. Installing on a Connected Android Device via ADB
+```bash
+# Check connected device
+adb devices
+
+# Install Universal APK
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+
+# Or install 64-bit ARM APK (for modern phones)
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+```
 
 ---
 
@@ -161,3 +209,43 @@ It calculates the **Euclidean Distance** between the vectors. If the distance be
 - Face Recognition App in Flutter using TensorFlow Lite & Google ML Kit 
 
 https://dev.to/yash_makan/face-recognition-app-in-flutter-using-tensorflowlite-google-ml-kit-nd3
+
+---
+
+## 📋 Student Bulk Import (Google Forms & ZIP Pipeline)
+
+Teachers can bulk enroll students into the app using a single `.zip` file export from Google Forms.
+
+### 1. Google Forms Field Order
+When creating the Google Form for student enrollment, fields must be configured in the following order:
+
+| # | Field Name | Type | Requirement | Instructions / Format |
+|---|------------|------|-------------|-----------------------|
+| 1 | **Registration Number** | Short Answer | **Required** | Uppercase (e.g., `23BAI1161`, `23BPS1006`). Used as the unique identifier. |
+| 2 | **Full Name** | Short Answer | Optional | Student's full name (e.g., `Rajat Kumar`). |
+| 3 | **Email Address** | Short Answer | Optional | Valid student email (e.g., `rajat@univ.edu`). |
+| 4 | **Phone Number** | Short Answer | Optional | Contact number (e.g., `+91 9876543210`). |
+| 5 | **Upload Photo** | File Upload | **Required** | A clear portrait photo with a single face. |
+
+> [!IMPORTANT]
+> **Photo Naming Instruction for Students:**
+> In the Google Form description for **Upload Photo**, instruct students:
+> *"Please name your image file as `REGNO.jpeg` (e.g., `23BAI1161.jpeg`) or `REGNO_FULLNAME.jpeg` (e.g., `23BAI1161_RAJAT.jpeg`) before uploading."*
+> Supported formats: `.jpg`, `.jpeg`, `.png`.
+
+---
+
+### 2. How the Teacher Prepares the ZIP File
+1. **Export Responses:** In the linked Google Sheet, click **File** $\rightarrow$ **Download** $\rightarrow$ **Comma Separated Values (.csv)**. Rename or keep it as `students.csv`.
+2. **Download Photos:** In Google Drive, open the responses folder containing student photos, right click $\rightarrow$ **Download** (Google Drive compresses them into a zip).
+3. **Assemble the ZIP:** Place `students.csv` alongside the `photos/` folder (or directly with the photo files) and compress them:
+   ```
+   class_import.zip
+   ├── students.csv
+   └── photos/
+       ├── 23BAI1161.jpeg
+       ├── 23BAI1252_DHARUN_PRASATH.jpeg
+       └── ...
+   ```
+4. **Direct Import:** In the Attendance app, navigate to **Manage Students** $\rightarrow$ tap **Import (ZIP)** and select `class_import.zip`. The app extracts student records, computes ArcFace embeddings, and completes enrollment automatically.
+

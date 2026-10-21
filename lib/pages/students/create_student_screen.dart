@@ -90,7 +90,7 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
     if (student == null || !mounted) return;
 
     final user = User(
-      id: student.id?.toString() ?? student.registerNumber,
+      registerNumber: student.registerNumber,
       name: student.name,
       email: student.email,
       phone: student.phone,
@@ -204,13 +204,13 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Full Name
+                    // Full Name (Optional)
                     TextFormField(
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
-                        labelText: "Full Name",
+                        labelText: "Full Name (Optional)",
                         labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "e.g. Piyush R Saini",
                         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -227,18 +227,18 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                           borderSide: BorderSide(color: colorScheme.primary, width: 2),
                         ),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? "Name is required" : null,
+                      validator: null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Email
+                    // Email (Optional)
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
-                        labelText: "Email",
+                        labelText: "Email (Optional)",
                         labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "student@example.com",
                         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -256,21 +256,22 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                         ),
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return "Email is required";
-                        if (!ValidationUtils.isValidEmail(v)) return "Enter a valid email (e.g. user@example.com)";
+                        if (v != null && v.trim().isNotEmpty && !ValidationUtils.isValidEmail(v)) {
+                          return "Enter a valid email (e.g. user@example.com)";
+                        }
                         return null;
                       },
                     ),
                     const SizedBox(height: 16),
 
-                    // Phone
+                    // Phone (Optional)
                     TextFormField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.done,
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: InputDecoration(
-                        labelText: "Phone Number",
+                        labelText: "Phone Number (Optional)",
                         labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                         hintText: "9876543210",
                         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
@@ -288,8 +289,9 @@ class _CreateStudentScreenState extends State<CreateStudentScreen> {
                         ),
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return "Phone is required";
-                        if (!ValidationUtils.isValidPhone(v)) return "Enter a valid phone number (at least 7 digits)";
+                        if (v != null && v.trim().isNotEmpty && !ValidationUtils.isValidPhone(v)) {
+                          return "Enter a valid phone number (at least 7 digits)";
+                        }
                         return null;
                       },
                     ),

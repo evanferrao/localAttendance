@@ -1,4 +1,5 @@
 import 'package:face_att/models/user.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class HiveBoxes {
@@ -25,7 +26,7 @@ class LocalDB {
 
   static bool get hasUsers => getUsers().isNotEmpty;
 
-  /// All registered users — skips malformed/legacy entries
+  /// All registered users — skips malformed entries
   static List<User> getUsers() {
     final box = _boxOrNull;
     if (box == null) return [];
@@ -34,12 +35,12 @@ class LocalDB {
       try {
         if (v is Map) {
           final user = User.fromMap(Map.from(v));
-          if (user.id.isNotEmpty && user.name != null) {
+          if (user.registerNumber.isNotEmpty) {
             result.add(user);
           }
         }
-      } catch (_) {
-        // skip malformed legacy entries
+      } catch (e) {
+        debugPrint("LocalDB.getUsers warning: $e");
       }
     }
     return result;
@@ -50,30 +51,31 @@ class LocalDB {
     return getUsers().where((u) => u.array != null && u.array!.length == 512).toList();
   }
 
-  /// Single user by id
-  static User? getUser(String id) {
+  /// Single user by registerNumber
+  static User? getUser(String registerNumber) {
     final box = _boxOrNull;
     if (box == null) return null;
-    final raw = box.get(id);
+    final raw = box.get(registerNumber);
     if (raw == null) return null;
     try {
       return User.fromMap(Map.from(raw as Map));
-    } catch (_) {
+    } catch (e) {
+      debugPrint("LocalDB.getUser($registerNumber) warning: $e");
       return null;
     }
   }
 
-  /// Save or update a user (keyed by user.id)
+  /// Save or update a user (keyed by user.registerNumber)
   static Future<void> saveUser(User user) async {
     final box = _boxOrNull ?? await Hive.openBox(HiveBoxes.usersBox);
-    await box.put(user.id, user.toMap());
+    await box.put(user.registerNumber, user.toMap());
   }
 
-  /// Delete a user by id
-  static Future<void> deleteUser(String id) async {
+  /// Delete a user by registerNumber
+  static Future<void> deleteUser(String registerNumber) async {
     final box = _boxOrNull;
     if (box != null) {
-      await box.delete(id);
+      await box.delete(registerNumber);
     }
   }
 }
