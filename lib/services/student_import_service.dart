@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/database/repositories/student_repository.dart';
 import 'package:face_att/models/student.dart';
+import 'package:face_att/models/user.dart';
 import 'package:face_att/services/face_recognition/ml_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -16,6 +17,8 @@ class StudentImportCandidate {
   final String phone;
   final String? photoPath;
   final Uint8List? photoBytes;
+  final String? vectorPath;
+  final List<double>? vector;
 
   const StudentImportCandidate({
     required this.registerNumber,
@@ -24,7 +27,12 @@ class StudentImportCandidate {
     this.phone = '',
     this.photoPath,
     this.photoBytes,
+    this.vectorPath,
+    this.vector,
   });
+
+  bool get hasVector => vector != null && vector!.length == 512;
+  bool get hasPhoto => photoBytes != null && photoBytes!.isNotEmpty;
 
   Student toStudent({bool hasFaceEnrolled = false}) {
     return Student(
@@ -114,6 +122,19 @@ class StudentImportService {
     );
   }
 
+  /// Main entry point: Import from a local vector ZIP file path.
+  Future<StudentImportSummary> importVectorsFromZipFile({
+    required String filePath,
+    int? classId,
+    ImportProgressCallback? onProgress,
+  }) async {
+    return importFromZipFile(
+      filePath: filePath,
+      classId: classId,
+      onProgress: onProgress,
+    );
+  }
+
   /// Import from raw ZIP bytes in memory.
   Future<StudentImportSummary> importFromZipBytes({
     required Uint8List zipBytes,
@@ -160,7 +181,21 @@ class StudentImportService {
         bool faceEnrolled = false;
         String? faceError;
 
-        if (candidate.photoBytes != null && candidate.photoBytes!.isNotEmpty) {
+        if (candidate.hasVector) {
+          try {
+            final user = User(
+              registerNumber: regNo,
+              name: candidate.name,
+              email: candidate.email,
+              phone: candidate.phone,
+              array: candidate.vector,
+            );
+            await _mlService.saveUser(user);
+            faceEnrolled = true;
+          } catch (e) {
+            faceError = 'Could not save vector embedding: $e';
+          }
+        } else if (candidate.hasPhoto) {
           try {
             final user = await _mlService.enrollFromImageBytes(
               bytes: candidate.photoBytes!,
@@ -180,7 +215,7 @@ class StudentImportService {
             faceError = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
           }
         } else {
-          faceError = 'No photo found matching registration number in archive';
+          faceError = 'No photo or vector found matching registration number in archive';
         }
 
         // Save or update student in SQLite
@@ -245,16 +280,72 @@ class StudentImportService {
     );
   }
 
+  /// Import specifically from raw Vector ZIP bytes in memory.
+  Future<StudentImportSummary> importVectorsFromZipBytes({
+    required Uint8List zipBytes,
+    int? classId,
+    ImportProgressCallback? onProgress,
+  }) async {
+    return importFromZipBytes(
+      zipBytes: zipBytes,
+      classId: classId,
+      onProgress: onProgress,
+    );
+  }
+
+  /// Parses raw text content into a 512-dimensional vector embedding.
+  /// Supports comma-separated, space-separated, newline-separated floats,
+  /// and JSON array formatting.
+  static List<double>? parseVectorContent(String content) {
+    try {
+      final trimmed = content.trim();
+      if (trimmed.isEmpty) return null;
+
+      // 1. JSON array format: [0.123, -0.456, ...]
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        final decoded = json.decode(trimmed);
+        if (decoded is List) {
+          final vec = decoded.map((e) => (e as num).toDouble()).toList();
+          return vec.length == 512 ? vec : null;
+        }
+      }
+
+      // 2. Comma, space, or newline-separated floats
+      final tokens = trimmed
+          .split(RegExp(r'[\s,]+'))
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      if (tokens.length == 512) {
+        final vec = <double>[];
+        for (final token in tokens) {
+          final val = double.tryParse(token);
+          if (val == null) return null;
+          vec.add(val);
+        }
+        return vec;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Parses an extracted [Archive] into a list of [StudentImportCandidate]s.
   /// Handles:
-  /// 1. CSV Manifest + photos (Tier 1)
-  /// 2. Pairwise JSON + photo (Tier 2)
-  /// 3. Direct filename photos (Tier 3 fallback)
+  /// 1. CSV Manifest + photos/vectors (Tier 1)
+  /// 2. Pairwise JSON + photo/vector (Tier 2)
+  /// 3. Direct filename photos/vectors (Tier 3 fallback)
   List<StudentImportCandidate> parseZipCandidates(Archive archive) {
-    // 1. Index all image files by normalized path and by filename prefix
+    // 1. Index image files, vector files, CSV, and JSON metadata
     final imagesByNormalizedPath = <String, Uint8List>{};
     final imagesByFilename = <String, Uint8List>{};
     final imagesByOriginalFilename = <String, Uint8List>{};
+
+    final vectorsByNormalizedPath = <String, List<double>>{};
+    final vectorsByFilename = <String, List<double>>{};
+    final vectorsByOriginalFilename = <String, List<double>>{};
+
     ArchiveFile? csvFile;
     final jsonFiles = <String, ArchiveFile>{};
 
@@ -270,6 +361,14 @@ class StudentImportService {
         imagesByNormalizedPath[normalizedPath.toLowerCase()] = bytes;
         imagesByFilename[fileName.toLowerCase()] = bytes;
         imagesByOriginalFilename[fileName] = bytes;
+      } else if (ext == 'txt' || ext == 'vec') {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        final vec = parseVectorContent(text);
+        if (vec != null) {
+          vectorsByNormalizedPath[normalizedPath.toLowerCase()] = vec;
+          vectorsByFilename[fileName.toLowerCase()] = vec;
+          vectorsByOriginalFilename[fileName] = vec;
+        }
       } else if (ext == 'csv' && csvFile == null) {
         csvFile = file;
       } else if (ext == 'json') {
@@ -280,7 +379,13 @@ class StudentImportService {
     // TIER 1: If CSV file exists, parse CSV
     if (csvFile != null) {
       final csvContent = utf8.decode(csvFile.content, allowMalformed: true);
-      final fromCsv = _parseCandidatesFromCsv(csvContent, imagesByNormalizedPath, imagesByFilename);
+      final fromCsv = _parseCandidatesFromCsv(
+        csvContent,
+        imagesByNormalizedPath: imagesByNormalizedPath,
+        imagesByFilename: imagesByFilename,
+        vectorsByNormalizedPath: vectorsByNormalizedPath,
+        vectorsByFilename: vectorsByFilename,
+      );
       if (fromCsv.isNotEmpty) {
         return fromCsv;
       }
@@ -288,14 +393,41 @@ class StudentImportService {
 
     // TIER 2: Check for pairwise JSON files (<reg_no>.json)
     if (jsonFiles.isNotEmpty) {
-      final fromJson = _parseCandidatesFromJson(jsonFiles, imagesByFilename);
+      final fromJson = _parseCandidatesFromJson(
+        jsonFiles,
+        imagesByFilename: imagesByFilename,
+        vectorsByFilename: vectorsByFilename,
+      );
       if (fromJson.isNotEmpty) {
         return fromJson;
       }
     }
 
-    // TIER 3: Filename-based fallback (e.g. REGNO_FULLNAME.jpeg or REGNO.jpeg)
+    // TIER 3: Filename-based fallback (e.g. REGNO_FULLNAME.txt or REGNO_FULLNAME.jpeg)
     final fromFilenames = <StudentImportCandidate>[];
+
+    // Priority to vectors if present
+    for (final entry in vectorsByOriginalFilename.entries) {
+      final rawFilename = entry.key;
+      final identity = MLService.parseIdentityFromFilename(rawFilename);
+      final regNo = identity['register_number']?.trim().toUpperCase() ?? '';
+      final name = identity['name']?.trim() ?? '';
+
+      if (regNo.isNotEmpty) {
+        fromFilenames.add(StudentImportCandidate(
+          registerNumber: regNo,
+          name: name == regNo ? '' : name,
+          vectorPath: rawFilename,
+          vector: entry.value,
+        ));
+      }
+    }
+
+    if (fromFilenames.isNotEmpty) {
+      return fromFilenames;
+    }
+
+    // Photos fallback
     for (final entry in imagesByOriginalFilename.entries) {
       final rawFilename = entry.key;
       final identity = MLService.parseIdentityFromFilename(rawFilename);
@@ -317,10 +449,12 @@ class StudentImportService {
 
   /// Parses CSV table lines into student candidates
   List<StudentImportCandidate> _parseCandidatesFromCsv(
-    String csvContent,
-    Map<String, Uint8List> imagesByNormalizedPath,
-    Map<String, Uint8List> imagesByFilename,
-  ) {
+    String csvContent, {
+    required Map<String, Uint8List> imagesByNormalizedPath,
+    required Map<String, Uint8List> imagesByFilename,
+    required Map<String, List<double>> vectorsByNormalizedPath,
+    required Map<String, List<double>> vectorsByFilename,
+  }) {
     final lines = const LineSplitter().convert(csvContent);
     if (lines.isEmpty) return [];
 
@@ -334,7 +468,7 @@ class StudentImportService {
     int nameIndex = -1;
     int emailIndex = -1;
     int phoneIndex = -1;
-    int photoIndex = -1;
+    int photoOrVectorIndex = -1;
 
     for (int i = 0; i < headers.length; i++) {
       final h = headers[i];
@@ -351,8 +485,15 @@ class StudentImportService {
         emailIndex = i;
       } else if (phoneIndex == -1 && (h.contains('phone') || h.contains('mobile') || h.contains('contact'))) {
         phoneIndex = i;
-      } else if (photoIndex == -1 && (h.contains('photo') || h.contains('image') || h.contains('file') || h.contains('picture'))) {
-        photoIndex = i;
+      } else if (photoOrVectorIndex == -1 &&
+          (h.contains('photo') ||
+              h.contains('image') ||
+              h.contains('file') ||
+              h.contains('picture') ||
+              h.contains('vector') ||
+              h.contains('embedding') ||
+              h.contains('vec'))) {
+        photoOrVectorIndex = i;
       }
     }
 
@@ -371,34 +512,71 @@ class StudentImportService {
       final name = (nameIndex != -1 && nameIndex < row.length) ? row[nameIndex].trim() : '';
       final email = (emailIndex != -1 && emailIndex < row.length) ? row[emailIndex].trim() : '';
       final phone = (phoneIndex != -1 && phoneIndex < row.length) ? row[phoneIndex].trim() : '';
-      final photoVal = (photoIndex != -1 && photoIndex < row.length) ? row[photoIndex].trim() : '';
+      final refVal = (photoOrVectorIndex != -1 && photoOrVectorIndex < row.length)
+          ? row[photoOrVectorIndex].trim()
+          : '';
 
       Uint8List? matchedBytes;
-      String? matchedPath;
+      String? matchedPhotoPath;
+      List<double>? matchedVector;
+      String? matchedVectorPath;
 
-      // 1. Check explicit photo path in CSV
-      if (photoVal.isNotEmpty) {
-        final normPath = photoVal.replaceAll('\\', '/').toLowerCase();
+      // 1. Check explicit path in CSV (against vectors first, then photos)
+      if (refVal.isNotEmpty) {
+        final normPath = refVal.replaceAll('\\', '/').toLowerCase();
         final baseName = normPath.split('/').last;
+        final baseStem = baseName.contains('.')
+            ? baseName.substring(0, baseName.lastIndexOf('.'))
+            : baseName;
+        final asVectorPath = 'vectors/$baseStem.txt';
+        final asVectorFile = '$baseStem.txt';
 
+        // Check vectors
+        if (vectorsByNormalizedPath.containsKey(normPath)) {
+          matchedVector = vectorsByNormalizedPath[normPath];
+          matchedVectorPath = refVal;
+        } else if (vectorsByNormalizedPath.containsKey(asVectorPath)) {
+          matchedVector = vectorsByNormalizedPath[asVectorPath];
+          matchedVectorPath = asVectorPath;
+        } else if (vectorsByFilename.containsKey(baseName)) {
+          matchedVector = vectorsByFilename[baseName];
+          matchedVectorPath = baseName;
+        } else if (vectorsByFilename.containsKey(asVectorFile)) {
+          matchedVector = vectorsByFilename[asVectorFile];
+          matchedVectorPath = asVectorFile;
+        }
+
+        // Check images
         if (imagesByNormalizedPath.containsKey(normPath)) {
           matchedBytes = imagesByNormalizedPath[normPath];
-          matchedPath = photoVal;
+          matchedPhotoPath = refVal;
         } else if (imagesByFilename.containsKey(baseName)) {
           matchedBytes = imagesByFilename[baseName];
-          matchedPath = baseName;
+          matchedPhotoPath = baseName;
         }
       }
 
-      // 2. If not found by path, match by register number prefix
+      final regLower = regNo.toLowerCase();
+
+      // 2. If vector not matched by path, match by register number prefix in vectors
+      if (matchedVector == null) {
+        for (final entry in vectorsByFilename.entries) {
+          final fname = entry.key;
+          if (fname.startsWith(regLower)) {
+            matchedVector = entry.value;
+            matchedVectorPath = entry.key;
+            break;
+          }
+        }
+      }
+
+      // 3. If photo not matched by path, match by register number prefix in images
       if (matchedBytes == null) {
-        final regLower = regNo.toLowerCase();
         for (final entry in imagesByFilename.entries) {
           final fname = entry.key;
-          // Matches e.g. 23bai1161.jpg, 23bai1161_rajat.jpg, 23bai1161 - rajat.png
           if (fname.startsWith(regLower)) {
             matchedBytes = entry.value;
-            matchedPath = entry.key;
+            matchedPhotoPath = entry.key;
             break;
           }
         }
@@ -409,8 +587,10 @@ class StudentImportService {
         name: name,
         email: email,
         phone: phone,
-        photoPath: matchedPath,
+        photoPath: matchedPhotoPath,
         photoBytes: matchedBytes,
+        vectorPath: matchedVectorPath,
+        vector: matchedVector,
       ));
     }
 
@@ -419,9 +599,10 @@ class StudentImportService {
 
   /// Parses pairwise JSON files (`<reg_no>.json`)
   List<StudentImportCandidate> _parseCandidatesFromJson(
-    Map<String, ArchiveFile> jsonFiles,
-    Map<String, Uint8List> imagesByFilename,
-  ) {
+    Map<String, ArchiveFile> jsonFiles, {
+    required Map<String, Uint8List> imagesByFilename,
+    required Map<String, List<double>> vectorsByFilename,
+  }) {
     final candidates = <StudentImportCandidate>[];
 
     for (final entry in jsonFiles.entries) {
@@ -439,11 +620,32 @@ class StudentImportService {
         final email = (map['email'] ?? '').toString().trim();
         final phone = (map['phone'] ?? '').toString().trim();
 
+        // Check if vector embedding embedded in json or separate vector file
+        List<double>? matchedVector;
+        String? matchedVectorPath;
+        if (map['array'] != null && map['array'] is List) {
+          final rawList = map['array'] as List;
+          if (rawList.length == 512) {
+            matchedVector = rawList.map((e) => (e as num).toDouble()).toList();
+            matchedVectorPath = jsonFileName;
+          }
+        }
+
+        // Match vector by register number if not embedded
+        final regLower = regNo.toLowerCase();
+        if (matchedVector == null) {
+          for (final vecEntry in vectorsByFilename.entries) {
+            if (vecEntry.key.startsWith(regLower)) {
+              matchedVector = vecEntry.value;
+              matchedVectorPath = vecEntry.key;
+              break;
+            }
+          }
+        }
+
         // Match photo by register number
         Uint8List? matchedBytes;
         String? matchedPath;
-
-        final regLower = regNo.toLowerCase();
         for (final imgEntry in imagesByFilename.entries) {
           if (imgEntry.key.startsWith(regLower)) {
             matchedBytes = imgEntry.value;
@@ -459,6 +661,8 @@ class StudentImportService {
           phone: phone,
           photoPath: matchedPath,
           photoBytes: matchedBytes,
+          vectorPath: matchedVectorPath,
+          vector: matchedVector,
         ));
       } catch (e) {
         debugPrint('Failed to parse json candidate $jsonFileName: $e');

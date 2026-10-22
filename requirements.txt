@@ -1,0 +1,10 @@
+# Python Version Requirement: Python >= 3.9, <= 3.14 (Recommended: Python 3.10, 3.11, or 3.12)
+# Ensure your Python environment meets this version before installing dependencies.
+
+insightface>=0.7.3; python_version >= "3.9" and python_version <= "3.14"
+onnxruntime>=1.16.0; python_version >= "3.9" and python_version <= "3.14"
+opencv-python-headless>=4.8.0; python_version >= "3.9" and python_version <= "3.14"
+numpy>=1.21.6; python_version >= "3.9" and python_version <= "3.14"
+tqdm>=4.65.0; python_version >= "3.9" and python_version <= "3.14"
+scikit-image>=0.20.0; python_version >= "3.9" and python_version <= "3.14"
+scipy>=1.10.0; python_version >= "3.9" and python_version <= "3.14"

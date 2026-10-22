@@ -55,3 +55,4 @@ assets/*.onnx
 output/
 newzip/
 *.zip
+create_variant_zips.py

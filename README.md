@@ -247,5 +247,29 @@ When creating the Google Form for student enrollment, fields must be configured 
        ├── 23BAI1252_DHARUN_PRASATH.jpeg
        └── ...
    ```
-4. **Direct Import:** In the Attendance app, navigate to **Manage Students** $\rightarrow$ tap **Import (ZIP)** and select `class_import.zip`. The app extracts student records, computes ArcFace embeddings, and completes enrollment automatically.
+4. **Direct Import:** In the Attendance app, navigate to **Manage Students** $\rightarrow$ tap **Import Students (Photos ZIP)** and select `class_import.zip`. The app extracts student records, computes ArcFace embeddings, and completes enrollment automatically.
+
+---
+
+### 3. Privacy-Preserving Vector Import (Secure Registration)
+For organizations with strict privacy policies where sharing raw student photos with staff is restricted, an alternative **Vector ZIP import** is available in parallel.
+
+Instead of sharing student photos, administrators can pre-calculate the 512-dimensional vector embeddings using the included Python utility:
+
+```bash
+python3 generate_vector_zip.py class_import.zip class_vectors.zip
+```
+
+#### Vector ZIP Structure:
+```
+class_vectors.zip
+├── students.csv             # Same CSV manifest (unchanged)
+└── vectors/                 # Pre-computed 512-d ArcFace embeddings
+    ├── 23BAI1161.txt
+    ├── 23BAI1252_DHARUN_PRASATH.txt
+    └── ...
+```
+
+#### Importing Vectors in App:
+In the Attendance app, navigate to **Manage Students** $\rightarrow$ tap **Import Students (Vector ZIP)** (fingerprint icon beside photo import) and select `class_vectors.zip`. The embeddings are enrolled directly into local storage instantly and securely without handling raw photo files on device.
 

@@ -3,6 +3,7 @@ import 'package:face_att/models/student.dart';
 import 'package:face_att/pages/students/create_student_screen.dart';
 import 'package:face_att/pages/students/student_detail_screen.dart';
 import 'package:face_att/pages/students/widgets/student_import_dialogs.dart';
+import 'package:face_att/services/student_export_service.dart';
 import 'package:face_att/services/student_import_service.dart';
 import 'package:face_att/utils/app_colors.dart';
 import 'package:file_picker/file_picker.dart';
@@ -168,6 +169,147 @@ class _StudentListScreenState extends State<StudentListScreen> {
     }
   }
 
+  Future<void> _importVectorsFromZip() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+
+    if (!mounted) return;
+
+    int current = 0;
+    int total = 0;
+    String currentLabel = 'Reading vector archive...';
+    StateSetter? dialogSetState;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setProgressState) {
+            dialogSetState = setProgressState;
+            final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : null;
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              content: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 16),
+                    Text(
+                      total > 0 ? "Importing vector $current of $total" : "Extracting vector ZIP...",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      currentLabel,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    try {
+      final importService = StudentImportService();
+      StudentImportSummary summary;
+
+      if (file.bytes != null) {
+        summary = await importService.importVectorsFromZipBytes(
+          zipBytes: file.bytes!,
+          onProgress: (cur, tot, label) {
+            if (dialogSetState != null) {
+              dialogSetState!(() {
+                current = cur;
+                total = tot;
+                currentLabel = label;
+              });
+            }
+          },
+        );
+      } else if (file.path != null) {
+        summary = await importService.importVectorsFromZipFile(
+          filePath: file.path!,
+          onProgress: (cur, tot, label) {
+            if (dialogSetState != null) {
+              dialogSetState!(() {
+                current = cur;
+                total = tot;
+                currentLabel = label;
+              });
+            }
+          },
+        );
+      } else {
+        throw Exception("Unable to read selected ZIP file data.");
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Dismiss progress dialog
+        await StudentImportDialogs.showSummaryDialog(context, summary: summary);
+        _loadStudents();
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Dismiss progress dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.absent,
+            content: Text("Vector ZIP Import Failed: $e"),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportStudentsZip() async {
+    if (_students.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No students available to export.")),
+      );
+      return;
+    }
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 1),
+          content: Text("Preparing student vector archive..."),
+        ),
+      );
+
+      final exportService = StudentExportService(studentRepo: _studentRepo);
+      await exportService.exportAndShareStudentsZip(students: _students);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.absent,
+            content: Text("Export Failed: $e"),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -192,8 +334,18 @@ class _StudentListScreenState extends State<StudentListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.file_upload_outlined),
-            tooltip: "Import Students (ZIP)",
+            tooltip: "Import Students (Photos ZIP)",
             onPressed: _importFromZip,
+          ),
+          IconButton(
+            icon: const Icon(Icons.fingerprint),
+            tooltip: "Import Students (Vector ZIP)",
+            onPressed: _importVectorsFromZip,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: "Export Students (Vector ZIP)",
+            onPressed: _exportStudentsZip,
           ),
         ],
       ),
