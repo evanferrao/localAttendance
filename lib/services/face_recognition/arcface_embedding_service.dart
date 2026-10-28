@@ -65,9 +65,9 @@ class ArcFaceEmbeddingService {
       _session = OrtSession.fromBuffer(bytes, _sessionOptions!);
       _isInitialized = true;
       _activeModelPath = modelPath;
-      debugPrint("✅ ONNX Runtime ArcFace session initialized with $modelPath ($activeModelName)");
+      debugPrint("[ArcFace] ONNX Runtime session initialized with $modelPath ($activeModelName)");
     } catch (e) {
-      debugPrint("❌ ONNX Runtime initialization error: $e");
+      debugPrint("[ArcFace] ONNX Runtime initialization error: $e");
     }
   }
 

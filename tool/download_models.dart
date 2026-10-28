@@ -34,11 +34,11 @@ Future<void> main(List<String> args) async {
 
     if (targetFile.existsSync() && targetFile.lengthSync() > 0) {
       final sizeMb = (targetFile.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
-      stdout.writeln('✓ $modelName already exists ($sizeMb MB). Skipping.');
+      stdout.writeln('[Model] $modelName already exists ($sizeMb MB). Skipping.');
       continue;
     }
 
-    stdout.writeln('⬇ Downloading $modelName from $url...');
+    stdout.writeln('[Model] Downloading $modelName from $url...');
     final tempFile = File('${assetsDir.path}/$modelName.tmp');
 
     try {
@@ -46,12 +46,12 @@ Future<void> main(List<String> args) async {
       if (tempFile.existsSync() && tempFile.lengthSync() > 0) {
         tempFile.renameSync(targetFile.path);
         final sizeMb = (targetFile.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
-        stdout.writeln('✓ Successfully downloaded $modelName ($sizeMb MB)');
+        stdout.writeln('[Model] Successfully downloaded $modelName ($sizeMb MB)');
       } else {
-        stderr.writeln('✗ Download completed but file is empty for $modelName');
+        stderr.writeln('[Error] Download completed but file is empty for $modelName');
       }
     } catch (e) {
-      stderr.writeln('✗ Error downloading $modelName: $e');
+      stderr.writeln('[Error] Error downloading $modelName: $e');
       if (tempFile.existsSync()) {
         tempFile.deleteSync();
       }

@@ -96,7 +96,7 @@ class _FaceScanScreenState extends State<FaceScanScreen> {
 
     setState(() {
       _isCapturing = true;
-      _statusMessage = "📸 Capturing photo for high-accuracy scan...";
+      _statusMessage = "Capturing photo for high-accuracy scan...";
     });
 
     XFile? pictureFile;

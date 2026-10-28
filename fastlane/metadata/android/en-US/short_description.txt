@@ -1,0 +1,1 @@
+Private on-device face recognition attendance system for classrooms

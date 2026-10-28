@@ -1,0 +1,45 @@
+Categories:
+  - Education
+  - Office
+License: AGPL-3.0-or-later
+AuthorName: Evan Ferrao
+SourceCode: https://github.com/evanferrao/localAttendance
+IssueTracker: https://github.com/evanferrao/localAttendance/issues
+
+AutoName: Local Attendance
+Summary: Private on-device face recognition attendance system for classrooms
+Description: |-
+  Local Attendance is a privacy-first, fully on-device facial recognition attendance application designed for educators, schools, and organizations.
+
+  Key Features:
+  * 100% On-Device & Private: Face detection and ArcFace neural network embeddings run entirely locally on your device hardware. Zero photos or biometric data ever leave the device or touch external servers.
+  * Flexible Attendance Modes:
+    - Single Mode (Front Camera): Fast 1-on-1 verification with geometric liveness and anti-spoofing verification.
+    - Classroom Mode (Back Camera): Identifies multiple students simultaneously across the room in real time.
+  * Privacy-Preserving Vector Import: In addition to standard photo ZIP archives, enroll classes securely using pre-computed ArcFace vector embeddings without needing to handle raw student photos on the device.
+  * Complete Attendance Workflow: Create classes, manage student rosters, schedule sessions, mark attendance with visual feedback, and export attendance records directly to CSV or JSON.
+  * Zero Telemetry & Offline-First: No Firebase, no analytics, and no tracking libraries. Operates completely offline without internet connectivity.
+
+AntiFeatures:
+  NonFreeDep:
+    en-US: Uses bundled on-device Google ML Kit for face bounding box detection. All face recognition, ArcFace neural embeddings, and attendance records operate 100% locally with zero cloud telemetry.
+
+RepoType: git
+Repo: https://github.com/evanferrao/localAttendance.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    output: build/app/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@3.27.0
+    prebuild:
+      - $$flutter$$/bin/flutter pub get
+    build:
+      - $$flutter$$/bin/flutter build apk --release
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

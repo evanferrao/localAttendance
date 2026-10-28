@@ -1,4 +1,4 @@
-package com.example.face_att
+package com.evanferrao.localattendance
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -77,7 +77,7 @@ class FaceMatcher {
 
       // Safety guard against legacy / incompatible embedding size
       if (u.array!.length != defaultEmbeddingDimension) {
-        debugPrint("⚠️ Skipping user with incompatible embedding size (${u.array!.length})");
+        debugPrint("[FaceMatcher] Warning: Skipping user with incompatible embedding size (${u.array!.length})");
         continue;
       }
 

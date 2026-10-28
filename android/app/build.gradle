@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.face_att"
+    namespace = "com.evanferrao.localattendance"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -26,8 +26,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.face_att"
+        applicationId = "com.evanferrao.localattendance"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -75,65 +74,74 @@ task downloadMissingModels {
         models.each { model ->
             def targetFile = new File(assetsDir, model.name)
             if (!targetFile.exists() || targetFile.length() == 0) {
-                println "⬇️ [Face Recognition] Downloading missing model ${model.name}..."
+                println "[Face Recognition] Checking model ${model.name}..."
                 def tempFile = new File(assetsDir, "${model.name}.tmp")
                 
-                def downloadUrl = model.url
-                def maxRedirects = 5
-                def redirectCount = 0
-                HttpURLConnection conn = null
+                try {
+                    def downloadUrl = model.url
+                    def maxRedirects = 5
+                    def redirectCount = 0
+                    HttpURLConnection conn = null
 
-                while (redirectCount < maxRedirects) {
-                    conn = (HttpURLConnection) new URL(downloadUrl).openConnection()
-                    conn.setInstanceFollowRedirects(true)
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                    conn.connect()
+                    while (redirectCount < maxRedirects) {
+                        conn = (HttpURLConnection) new URL(downloadUrl).openConnection()
+                        conn.setConnectTimeout(10000)
+                        conn.setReadTimeout(30000)
+                        conn.setInstanceFollowRedirects(true)
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                        conn.connect()
 
-                    int status = conn.responseCode
-                    if (status >= 300 && status < 400) {
-                        def location = conn.getHeaderField("Location")
-                        if (location != null) {
-                            downloadUrl = location
-                            redirectCount++
-                            continue
+                        int status = conn.responseCode
+                        if (status >= 300 && status < 400) {
+                            def location = conn.getHeaderField("Location")
+                            if (location != null) {
+                                downloadUrl = location
+                                redirectCount++
+                                continue
+                            }
                         }
+                        break
                     }
-                    break
-                }
 
-                if (conn.responseCode != 200) {
-                    println "⚠️ Warning: Failed to download ${model.name} (HTTP ${conn.responseCode})"
-                    return
-                }
+                    if (conn.responseCode != 200) {
+                        println "Warning: Failed to download ${model.name} (HTTP ${conn.responseCode})"
+                        return
+                    }
 
-                long totalBytes = conn.contentLengthLong
-                long downloadedBytes = 0
-                int lastPercent = -1
+                    long totalBytes = conn.contentLengthLong
+                    long downloadedBytes = 0
+                    int lastPercent = -1
 
-                conn.inputStream.withCloseable { input ->
-                    tempFile.withOutputStream { output ->
-                        byte[] buffer = new byte[65536]
-                        int bytesRead
-                        while ((bytesRead = input.read(buffer)) != -1) {
-                            output.write(buffer, 0, bytesRead)
-                            downloadedBytes += bytesRead
-                            if (totalBytes > 0) {
-                                int percent = (int) ((downloadedBytes * 100) / totalBytes)
-                                if (percent % 10 == 0 && percent != lastPercent) {
-                                    println "⬇️ [Face Recognition] Downloading ${model.name}: ${percent}% (${downloadedBytes / (1024 * 1024)}MB / ${totalBytes / (1024 * 1024)}MB)"
-                                    lastPercent = percent
+                    conn.inputStream.withCloseable { input ->
+                        tempFile.withOutputStream { output ->
+                            byte[] buffer = new byte[65536]
+                            int bytesRead
+                            while ((bytesRead = input.read(buffer)) != -1) {
+                                output.write(buffer, 0, bytesRead)
+                                downloadedBytes += bytesRead
+                                if (totalBytes > 0) {
+                                    int percent = (int) ((downloadedBytes * 100) / totalBytes)
+                                    if (percent % 10 == 0 && percent != lastPercent) {
+                                        println "[Face Recognition] Downloading ${model.name}: ${percent}% (${downloadedBytes / (1024 * 1024)}MB / ${totalBytes / (1024 * 1024)}MB)"
+                                        lastPercent = percent
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                if (tempFile.exists() && tempFile.length() > 0) {
-                    tempFile.renameTo(targetFile)
-                    println "✅ [Face Recognition] Successfully downloaded ${model.name} (${targetFile.length() / (1024 * 1024)}MB)"
+                    if (tempFile.exists() && tempFile.length() > 0) {
+                        tempFile.renameTo(targetFile)
+                        println "[Face Recognition] Successfully downloaded ${model.name} (${targetFile.length() / (1024 * 1024)}MB)"
+                    }
+                } catch (Exception e) {
+                    println "[Face Recognition] Note: Network download for ${model.name} skipped or unavailable (${e.message}). Proceeding with build."
+                    if (tempFile.exists()) {
+                        tempFile.delete()
+                    }
                 }
             } else {
-                println "ℹ️ [Face Recognition] Model ${model.name} already exists. Skipping download."
+                println "[Face Recognition] Model ${model.name} already exists. Skipping download."
             }
         }
     }

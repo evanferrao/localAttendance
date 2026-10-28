@@ -1,17 +1,17 @@
 # Face Attendance App (flutter_face_attence_app)
 
-A robust and secure Flutter application for handling facial recognition-based attendance. The project utilizes Google ML Kit for face detection and TensorFlow Lite for face recognition and embeddings extraction, running fully on-device for maximum privacy and performance.
+A robust and secure Flutter application for handling facial recognition-based attendance. The project utilizes Google ML Kit for face detection and ONNX Runtime for ArcFace facial recognition and embeddings extraction, running fully on-device for maximum privacy and performance.
 
-## 🌟 Features
+## Features
 - **Face Detection:** Real-time face detection using Google ML Kit.
-- **Face Recognition:** Uses custom TensorFlow Lite (TFLite) models to identify users based on their facial embeddings.
+- **Face Recognition:** Uses ONNX Runtime with ArcFace (w600k_r50) to identify users based on high-accuracy 512-dimensional facial embeddings.
 - **Local Storage:** Secure, fast local storage for caching and storing user embedding vectors utilizing `hive_flutter`.
 - **Animations:** High-quality Lottie animations for loading states and user feedback.
 - **Image Processing:** Efficient image manipulation using the `image` package to process camera frames.
 
-## 🛠 Tech Stack
+## Tech Stack
 - **Framework:** [Flutter](https://flutter.dev/)
-- **Machine Learning:** `tflite_flutter`, `google_ml_kit`
+- **Machine Learning:** `flutter_onnxruntime`, `google_mlkit_face_detection`
 - **Camera:** `camera` plugin for live feed.
 - **Storage:** `hive_flutter` (NoSQL Key-Value database).
 - **UI/UX:** `lottie` for animations, `cupertino_icons` for iOS style icons.
@@ -25,7 +25,7 @@ A robust and secure Flutter application for handling facial recognition-based at
 
 ---
 
-## 🚀 Running the Project
+## Running the Project
 
 Follow these steps to run the application on your local machine:
 
@@ -57,7 +57,7 @@ Follow these steps to run the application on your local machine:
 
 ---
 
-## 📦 Building Release APKs (Compilation Guide)
+## Building Release APKs (Compilation Guide)
 
 All Flutter commands in this project are managed via **FVM** and require Java 17 Temurin:
 ```bash
@@ -104,7 +104,7 @@ adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
 ---
 
-## 🛡️ ProGuard Rules Configuration
+## ProGuard Rules Configuration
 
 When building the Android app for Release (e.g., using `flutter build apk` or `flutter build appbundle`), Android's R8 compiler automatically minifies and obfuscates the code to reduce app size and protect intellectual property.
 
@@ -143,7 +143,7 @@ We keep classes required for Flutter, TFLite, ML Kit, and Hive intact:
 
 ---
 
-## ⚙️ Why Add `jniLibs`?
+## Why Add `jniLibs`?
 
 You might notice configurations or references to **JNI (Java Native Interface) Libraries** (`jniLibs`) in Android ML projects. Here is why they are crucial for this application:
 
@@ -165,7 +165,7 @@ If you encounter an issue like `"UnsatisfiedLinkError: dlopen failed: library no
 
 ---
 
-## 🔬 Deep Dive: Camera Timing & ML Pipeline
+## Deep Dive: Camera Timing & ML Pipeline
 
 If you are looking to understand the core mechanics of how the app handles real-time computer vision, here is a breakdown of the Camera and ML Kit workflow. This serves as an excellent technical outline for understanding the recognition pipeline.
 
@@ -212,7 +212,7 @@ https://dev.to/yash_makan/face-recognition-app-in-flutter-using-tensorflowlite-g
 
 ---
 
-## 📋 Student Bulk Import (Google Forms & ZIP Pipeline)
+## Student Bulk Import (Google Forms & ZIP Pipeline)
 
 Teachers can bulk enroll students into the app using a single `.zip` file export from Google Forms.
 
@@ -272,4 +272,22 @@ class_vectors.zip
 
 #### Importing Vectors in App:
 In the Attendance app, navigate to **Manage Students** $\rightarrow$ tap **Import Students (Vector ZIP)** (fingerprint icon beside photo import) and select `class_vectors.zip`. The embeddings are enrolled directly into local storage instantly and securely without handling raw photo files on device.
+
+---
+
+## Distribution (F-Droid & Google Play)
+
+Local Attendance is configured for unified publishing across both Google Play and F-Droid (via IzzyOnDroid) using the application ID `com.evanferrao.localattendance`:
+
+- **Zero Cloud Telemetry:** No Firebase, analytics, crash reporting, or external network trackers.
+- **Fastlane Metadata:** Located at `fastlane/metadata/android/en-US/` containing app descriptions, screenshots, and version changelog.
+- **F-Droid Build Recipe:** Located at `metadata/com.evanferrao.localattendance.yml`.
+- **AntiFeature:** Uses `NonFreeDep` indicating bundled on-device Google ML Kit face bounding box detection with fully offline, local ArcFace neural network embeddings.
+
+---
+
+## License
+
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+
 

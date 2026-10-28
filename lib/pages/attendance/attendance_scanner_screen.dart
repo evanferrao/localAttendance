@@ -474,11 +474,11 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
           final names = count <= 2
               ? newlyMarked.join(", ")
               : "${newlyMarked.take(2).join(', ')} +${count - 2} more";
-          _statusMessage = "✓ $totalFaces face(s) • Marked $count: $names";
+          _statusMessage = "$totalFaces face(s) • Marked $count: $names";
           _feedbackColor = AppColors.present;
         } else if (alreadyPresent.isNotEmpty) {
           final count = alreadyPresent.length;
-          _statusMessage = "✓ $totalFaces face(s) • $count student(s) already marked present";
+          _statusMessage = "$totalFaces face(s) • $count student(s) already marked present";
           _feedbackColor = AppColors.warning;
         } else if (unrecognizedCount > 0) {
           _statusMessage = "$totalFaces face(s) detected • $unrecognizedCount not recognized";
@@ -552,7 +552,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
 
       if (mounted) {
         setState(() {
-          _statusMessage = "✓ Marked Present: ${student.displayName}";
+          _statusMessage = "Marked Present: ${student.displayName}";
           _feedbackColor = AppColors.present;
           _countdown = kCaptureIntervalSeconds;
         });

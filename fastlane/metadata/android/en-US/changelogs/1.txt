@@ -1,0 +1,6 @@
+Initial release of Local Attendance.
+- Real-time on-device face recognition using ArcFace neural network
+- Dual scanning modes: Single Student and Classroom Multi-Student
+- Complete offline SQLite session tracking and student management
+- CSV and privacy-preserving Vector ZIP bulk roster import
+- Built with zero cloud telemetry and 100% on-device biometrics
