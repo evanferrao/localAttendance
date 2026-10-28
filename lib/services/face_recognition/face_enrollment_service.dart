@@ -17,9 +17,13 @@ class FaceEnrollmentService {
         _picker = picker ?? ImagePicker();
 
   /// Enroll face embedding from a photo picked via gallery.
-  /// Returns the enrolled [User] or `null` if user canceled or no face was found.
   Future<User?> enrollFromGallery(Student student) async {
-    final xFile = await _picker.pickImage(source: ImageSource.gallery);
+    final xFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 90,
+    );
     if (xFile == null) return null;
 
     final bytes = await xFile.readAsBytes();

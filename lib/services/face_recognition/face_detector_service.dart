@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -10,6 +11,7 @@ import 'package:image/image.dart' as img;
 /// Service responsible for Google ML Kit face and landmark detection with rotation-aware fallbacks.
 class FaceDetectorService {
   FaceDetector? _faceDetector;
+  Future<void>? _activeDetectionFuture;
 
   FaceDetector get detector {
     _faceDetector ??= FaceDetector(
@@ -53,10 +55,34 @@ class FaceDetectorService {
   /// Bakes EXIF orientation and handles camera rotation so all detected faces
   /// and landmarks match the image pixels precisely.
   /// Securely ensures all temporary files are erased even on exceptions.
+  /// Uses a FIFO async lock to prevent concurrent executions from colliding on ML Kit.
   Future<List<DetectedFaceData>> detectAllFaces(
     Uint8List imageBytes, {
     int? sensorOrientation,
   }) async {
+    final prev = _activeDetectionFuture;
+    final completer = Completer<void>();
+    _activeDetectionFuture = completer.future;
+
+    if (prev != null) {
+      try {
+        await prev;
+      } catch (_) {}
+    }
+
+    try {
+      return await _executeDetectAllFaces(imageBytes, sensorOrientation: sensorOrientation);
+    } finally {
+      completer.complete();
+    }
+  }
+
+  Future<List<DetectedFaceData>> _executeDetectAllFaces(
+    Uint8List imageBytes, {
+    int? sensorOrientation,
+  }) async {
+    if (imageBytes.isEmpty) return [];
+
     File? tempFile;
     try {
       final d = detector;
@@ -155,7 +181,9 @@ class FaceDetectorService {
 
   /// Release underlying resources
   void dispose() {
-    _faceDetector?.close();
+    try {
+      _faceDetector?.close();
+    } catch (_) {}
     _faceDetector = null;
   }
 }

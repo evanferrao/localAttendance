@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:camera/camera.dart';
@@ -18,6 +19,7 @@ class ArcFaceEmbeddingService {
   OrtSessionOptions? _sessionOptions;
   bool _isInitialized = false;
   String _activeModelPath = 'assets/w600k_r50.onnx';
+  Future<void>? _activeInferenceFuture;
 
   bool get isInitialized => _isInitialized;
   String get activeModelPath => _activeModelPath;
@@ -132,8 +134,28 @@ class ArcFaceEmbeddingService {
     return runInference(flat);
   }
 
-  /// Executes ONNX tensor inference and safely releases native resources.
+  /// Executes ONNX tensor inference sequentially and safely releases native resources.
+  /// Uses a FIFO async lock to strictly guarantee that concurrent inferences
+  /// never execute simultaneously on the single underlying ONNX runtime session.
   Future<List<double>> runInference(List<double> flat) async {
+    final prev = _activeInferenceFuture;
+    final completer = Completer<void>();
+    _activeInferenceFuture = completer.future;
+
+    if (prev != null) {
+      try {
+        await prev;
+      } catch (_) {}
+    }
+
+    try {
+      return await _executeInference(flat);
+    } finally {
+      completer.complete();
+    }
+  }
+
+  Future<List<double>> _executeInference(List<double> flat) async {
     if (_session == null) {
       throw StateError("ArcFace ONNX session is not initialized");
     }

@@ -44,7 +44,8 @@ class AttendanceScannerScreen extends StatefulWidget {
   State<AttendanceScannerScreen> createState() => _AttendanceScannerScreenState();
 }
 
-class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with SingleTickerProviderStateMixin {
+class _AttendanceScannerScreenState extends State<AttendanceScannerScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const int kCaptureIntervalSeconds = 4;
 
   final AttendanceService _attendanceService = AttendanceService();
@@ -58,6 +59,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   bool _isControllerInitialized = false;
   bool _isCapturing = false;
   bool _isProcessing = false;
+  bool _isLoadingPhoto = false;
   bool _isDisposed = false;
 
   /// Mode: false = Single Mode (Portrait, 1 student)
@@ -82,6 +84,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
     _loadClassAndRecords();
     _initializeCamera();
@@ -90,6 +93,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   @override
   void dispose() {
     _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _intervalTimer?.cancel();
     _cameraController?.dispose();
     _cameraController = null;
@@ -102,9 +106,23 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isDisposed || !mounted) return;
+
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      // Pause periodic timer when app is paused or when an external intent (like gallery) opens
+      _intervalTimer?.cancel();
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_isProcessing && !_isCapturing && !_isLoadingPhoto) {
+        _startCountdownLoop();
+      }
+    }
+  }
+
   /// Toggle between Single Mode (Portrait) and Classroom Mode (Landscape Multi-Student)
   Future<void> _toggleMode() async {
-    if (_isCapturing || _isProcessing) return;
+    if (_isCapturing || _isProcessing || _isLoadingPhoto) return;
 
     final newMode = !_isEasyMode;
     setState(() {
@@ -136,7 +154,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
 
   /// Flip camera manually between front and back
   Future<void> _flipCamera() async {
-    if (_isCapturing || _isProcessing || _cameraController == null) return;
+    if (_isCapturing || _isProcessing || _isLoadingPhoto || _cameraController == null) return;
     final currentDirection = _cameraController!.description.lensDirection;
     final wantBackCamera = currentDirection != CameraLensDirection.back;
 
@@ -229,7 +247,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
         timer.cancel();
         return;
       }
-      if (_isCapturing || _isProcessing) return;
+      if (_isCapturing || _isProcessing || _isLoadingPhoto) return;
 
       setState(() {
         if (_countdown > 1) {
@@ -243,7 +261,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   Future<void> _triggerScan() async {
-    if (_isCapturing || _isProcessing || !_isControllerInitialized || _cameraController == null) return;
+    if (_isCapturing || _isProcessing || _isLoadingPhoto || !_isControllerInitialized || _cameraController == null) return;
     if (_cameraController!.value.isTakingPicture) return;
 
     setState(() {
@@ -280,7 +298,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
     }
   }
 
-  Future<void> _processImageBytes(Uint8List bytes) async {
+  Future<void> _processImageBytes(Uint8List bytes, {bool isStaticImage = false}) async {
     setState(() {
       _isProcessing = true;
       _statusMessage = _isEasyMode
@@ -302,9 +320,9 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       }
 
       if (_isEasyMode) {
-        await _processEasyModeBatch(bytes);
+        await _processEasyModeBatch(bytes, isStaticImage: isStaticImage);
       } else {
-        await _processNormalModeSingle(bytes);
+        await _processNormalModeSingle(bytes, isStaticImage: isStaticImage);
       }
     } catch (e) {
       debugPrint("Inference error: $e");
@@ -326,10 +344,10 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   /// Single Mode: Limit to 1 student at a time (focusing on primary face)
-  Future<void> _processNormalModeSingle(Uint8List bytes) async {
+  Future<void> _processNormalModeSingle(Uint8List bytes, {bool isStaticImage = false}) async {
     final faceData = await _mlService.detectFaceOnImageBytes(
       bytes,
-      sensorOrientation: _cameraController?.description.sensorOrientation,
+      sensorOrientation: isStaticImage ? null : _cameraController?.description.sensorOrientation,
     );
     if (faceData == null) {
       if (mounted) {
@@ -342,8 +360,8 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
       return;
     }
 
-    // Check Anti-Spoofing and Liveness if mlKitFace is available
-    if (faceData.mlKitFace != null) {
+    // Check Anti-Spoofing and Liveness if mlKitFace is available (only for live camera frames)
+    if (!isStaticImage && faceData.mlKitFace != null) {
       final spoofWarning = SpoofGuard.check(faceData.mlKitFace!);
       if (spoofWarning != null) {
         if (mounted) {
@@ -373,10 +391,10 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   /// Classroom Mode: Identifies multiple students simultaneously
-  Future<void> _processEasyModeBatch(Uint8List bytes) async {
+  Future<void> _processEasyModeBatch(Uint8List bytes, {bool isStaticImage = false}) async {
     final faces = await _mlService.detectAllFacesOnImageBytes(
       bytes,
-      sensorOrientation: _cameraController?.description.sensorOrientation,
+      sensorOrientation: isStaticImage ? null : _cameraController?.description.sensorOrientation,
     );
 
     if (faces.isEmpty) {
@@ -551,22 +569,106 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
   }
 
   Future<void> _testFromPhoto() async {
-    final xFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (xFile == null) return;
+    if (_isLoadingPhoto) return;
+    _intervalTimer?.cancel();
 
-    final bytes = await xFile.readAsBytes();
-    await _processImageBytes(bytes);
+    // If camera capture or verification is currently in flight, wait for it to cleanly complete
+    // so no hardware or model contention occurs
+    if (_isCapturing || _isProcessing) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Finishing current scan before loading photo...";
+        });
+      }
+      while ((_isCapturing || _isProcessing) && mounted && !_isDisposed) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    }
+
+    if (_isDisposed || !mounted) return;
+
+    setState(() {
+      _isLoadingPhoto = true;
+      _statusMessage = "Select a student photo from gallery";
+    });
+
+    try {
+      final xFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 90,
+      );
+
+      if (_isDisposed || !mounted) return;
+
+      if (xFile == null) {
+        if (mounted) {
+          setState(() {
+            _statusMessage = _isEasyMode
+                ? "Classroom Mode • Scanning multiple students..."
+                : "Single Mode • Position student face in frame";
+            _feedbackColor = _isEasyMode ? AppColors.present : Colors.white70;
+          });
+        }
+        return;
+      }
+
+      final bytes = await xFile.readAsBytes();
+      if (_isDisposed || !mounted) return;
+
+      await _processImageBytes(bytes, isStaticImage: true);
+    } catch (e) {
+      debugPrint("Photo load error: $e");
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Could not load photo: $e";
+          _feedbackColor = AppColors.absent;
+        });
+      }
+    } finally {
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoadingPhoto = false;
+        });
+        _startCountdownLoop();
+      }
+    }
   }
 
   Future<void> _testDebugPiyushPhoto() async {
+    if (_isLoadingPhoto) return;
+    _intervalTimer?.cancel();
+
+    if (_isCapturing || _isProcessing) {
+      while ((_isCapturing || _isProcessing) && mounted && !_isDisposed) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    }
+
+    if (_isDisposed || !mounted) return;
+
+    setState(() {
+      _isLoadingPhoto = true;
+      _statusMessage = "Loading debug test photo...";
+    });
+
     try {
       final bytes = await _mlService.loadDebugPhotoBytes();
-      await _processImageBytes(bytes);
+      if (_isDisposed || !mounted) return;
+      await _processImageBytes(bytes, isStaticImage: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(backgroundColor: AppColors.absent, content: Text("Debug photo error: $e")),
         );
+      }
+    } finally {
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isLoadingPhoto = false;
+        });
+        _startCountdownLoop();
       }
     }
   }
@@ -676,7 +778,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
               Positioned.fill(
                 child: ScannerHudOverlay(
                   isLandscape: true,
-                  isProcessing: _isProcessing,
+                  isProcessing: _isProcessing || _isLoadingPhoto,
                   isCapturing: _isCapturing,
                   isEasyMode: _isEasyMode,
                   countdown: _countdown,
@@ -874,7 +976,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> with 
                   _buildCameraPreview(fit: BoxFit.cover),
                   ScannerHudOverlay(
                     isLandscape: false,
-                    isProcessing: _isProcessing,
+                    isProcessing: _isProcessing || _isLoadingPhoto,
                     isCapturing: _isCapturing,
                     isEasyMode: _isEasyMode,
                     countdown: _countdown,
