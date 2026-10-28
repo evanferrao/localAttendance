@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:camera/camera.dart';
 import 'package:face_att/models/recognition_result.dart';
 import 'package:face_att/services/face_recognition/image_converter.dart';
+import 'package:face_att/services/face_recognition/model_manager_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
@@ -19,18 +20,25 @@ class ArcFaceEmbeddingService {
   OrtSessionOptions? _sessionOptions;
   bool _isInitialized = false;
   String _activeModelPath = 'assets/w600k_r50.onnx';
+  String _activeModelNameOverride = '';
   Future<void>? _activeInferenceFuture;
 
   bool get isInitialized => _isInitialized;
   String get activeModelPath => _activeModelPath;
 
   String get activeModelName {
+    if (_activeModelNameOverride.isNotEmpty) {
+      return _activeModelNameOverride;
+    }
     if (_activeModelPath.contains('glintr100')) {
       return 'ArcFace ResNet-100 (Glint360K)';
     } else if (_activeModelPath.contains('r50')) {
       return 'ArcFace ResNet-50 (buffalo_l)';
-    } else {
+    } else if (_activeModelPath.contains('mbf')) {
       return 'ArcFace MobileFaceNet (buffalo_s)';
+    } else {
+      final name = _activeModelPath.split('/').last.split('\\').last;
+      return name.isNotEmpty ? name : 'ArcFace Neural Network';
     }
   }
 
@@ -39,7 +47,7 @@ class ArcFaceEmbeddingService {
     await initializeInterpreter();
   }
 
-  Future<void> initializeInterpreter() async {
+  Future<void> initializeInterpreter({Uint8List? explicitModelBytes, String? explicitModelPath}) async {
     try {
       OrtEnv.instance.init();
       _sessionOptions = OrtSessionOptions();
@@ -47,26 +55,23 @@ class ArcFaceEmbeddingService {
       _sessionOptions?.setIntraOpNumThreads(1);
       _sessionOptions?.setInterOpNumThreads(1);
 
-      ByteData? rawAsset;
-      String modelPath = 'assets/w600k_r50.onnx';
-      try {
-        rawAsset = await rootBundle.load(modelPath);
-      } catch (_) {
-        modelPath = 'assets/w600k_mbf.onnx';
-        try {
-          rawAsset = await rootBundle.load(modelPath);
-        } catch (_) {
-          modelPath = 'assets/glintr100.onnx';
-          rawAsset = await rootBundle.load(modelPath);
-        }
+      Uint8List? bytes = explicitModelBytes;
+      String modelPath = explicitModelPath ?? 'unknown';
+
+      if (bytes == null) {
+        final loaded = await ModelManagerService.instance.loadActiveModel();
+        bytes = loaded.bytes;
+        modelPath = loaded.path;
+        _activeModelNameOverride = loaded.displayName;
       }
 
-      final bytes = rawAsset.buffer.asUint8List();
+      _session?.release();
       _session = OrtSession.fromBuffer(bytes, _sessionOptions!);
       _isInitialized = true;
       _activeModelPath = modelPath;
       debugPrint("[ArcFace] ONNX Runtime session initialized with $modelPath ($activeModelName)");
     } catch (e) {
+      _isInitialized = false;
       debugPrint("[ArcFace] ONNX Runtime initialization error: $e");
     }
   }

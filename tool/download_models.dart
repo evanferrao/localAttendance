@@ -21,25 +21,28 @@ Future<void> main(List<String> args) async {
   final targetModels = includeAll ? modelUrls.keys.toList() : defaultModels;
 
   final projectRoot = Directory.current;
-  final assetsDir = Directory('${projectRoot.path}/assets');
-  if (!assetsDir.existsSync()) {
-    assetsDir.createSync(recursive: true);
+  final modelsDir = Directory('${projectRoot.path}/assets/models');
+  if (!modelsDir.existsSync()) {
+    modelsDir.createSync(recursive: true);
   }
 
   stdout.writeln('=== Checking Face Recognition Models ===');
 
   for (final modelName in targetModels) {
     final url = modelUrls[modelName]!;
-    final targetFile = File('${assetsDir.path}/$modelName');
+    final targetFile = File('${modelsDir.path}/$modelName');
+    final legacyFile = File('${projectRoot.path}/assets/$modelName');
 
-    if (targetFile.existsSync() && targetFile.lengthSync() > 0) {
-      final sizeMb = (targetFile.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
+    if ((targetFile.existsSync() && targetFile.lengthSync() > 0) ||
+        (legacyFile.existsSync() && legacyFile.lengthSync() > 0)) {
+      final active = targetFile.existsSync() ? targetFile : legacyFile;
+      final sizeMb = (active.lengthSync() / (1024 * 1024)).toStringAsFixed(1);
       stdout.writeln('[Model] $modelName already exists ($sizeMb MB). Skipping.');
       continue;
     }
 
     stdout.writeln('[Model] Downloading $modelName from $url...');
-    final tempFile = File('${assetsDir.path}/$modelName.tmp');
+    final tempFile = File('${modelsDir.path}/$modelName.tmp');
 
     try {
       await _downloadFile(url, tempFile);

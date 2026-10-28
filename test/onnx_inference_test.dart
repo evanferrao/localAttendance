@@ -20,7 +20,10 @@ void main() {
   test('ONNX Runtime matches Python output on sample_face_112.png', () async {
     OrtEnv.instance.init();
 
-    final modelBytes = await File('assets/w600k_r50.onnx').readAsBytes();
+    final modelFile = File('assets/models/w600k_r50.onnx').existsSync()
+        ? File('assets/models/w600k_r50.onnx')
+        : File('assets/w600k_r50.onnx');
+    final modelBytes = await modelFile.readAsBytes();
     final sessionOptions = OrtSessionOptions();
     final session = OrtSession.fromBuffer(modelBytes, sessionOptions);
 

@@ -61,14 +61,25 @@ flutter {
 task downloadMissingModels {
     description = "Downloads missing ONNX models required for face recognition if not present"
     doLast {
-        def assetsDir = file("${projectDir}/../../assets")
+        if (project.hasProperty('leanBuild') || project.hasProperty('slim') || project.hasProperty('smallerBuild')) {
+            println "[Build Config] Smaller build requested (-Pslim / -PleanBuild). Skipping Gradle model download."
+            return
+        }
+
+        def pubspecFile = file("${projectDir}/../../pubspec.yaml")
+        if (pubspecFile.exists() && !pubspecFile.text.contains("assets/models/")) {
+            println "[Build Config] Smaller build detected in pubspec.yaml. Skipping model download."
+            return
+        }
+
+        def assetsDir = file("${projectDir}/../../assets/models")
         if (!assetsDir.exists()) {
             assetsDir.mkdirs()
         }
 
         def models = [
-            [name: "w600k_r50.onnx", url: "https://huggingface.co/maze/faceX/resolve/main/w600k_r50.onnx"],
-            [name: "w600k_mbf.onnx", url: "https://huggingface.co/deepghs/insightface/resolve/main/buffalo_s/w600k_mbf.onnx"]
+            [name: "w600k_mbf.onnx", url: "https://huggingface.co/deepghs/insightface/resolve/main/buffalo_s/w600k_mbf.onnx"],
+            [name: "w600k_r50.onnx", url: "https://huggingface.co/maze/faceX/resolve/main/w600k_r50.onnx"]
         ]
 
         models.each { model ->

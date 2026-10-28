@@ -64,8 +64,39 @@ All Flutter commands in this project are managed via **FVM** and require Java 17
 export JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk
 ```
 
+### Build Configurations: Smaller Build vs. Bundled Build
+
+Local Attendance supports two distribution configurations:
+
+#### Option A: Smaller Build (~25 MB - Recommended for Google Play & F-Droid)
+Excludes large ONNX models from the installation package. The app size drops from ~450 MB down to **~25 MB**, comfortably complying with Google Play's 150 MB initial download limit:
+```bash
+# 1. Switch to smaller build configuration
+fvm dart run tool/configure_build.dart --slim
+
+# 2. Build release APK or AppBundle
+JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build apk --release
+# Or for Google Play:
+JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build appbundle --release
+```
+- **First App Setup**: When opened for the first time, the app displays a setup screen:
+  - **Download Model**: Automatically downloads MobileFaceNet (~13 MB, recommended) or ResNet-50 (~167 MB) with real-time progress and speed indicators.
+  - **Manual Selection**: Users can select a locally stored `.onnx` model file directly from device storage (useful in air-gapped/offline environments).
+
+#### Option B: Bundled Build (~200+ MB - Standalone Offline)
+Pre-packages the ArcFace ONNX models directly inside the application APK for completely standalone offline operation with zero setup:
+```bash
+# 1. Switch to bundled build configuration
+fvm dart run tool/configure_build.dart --bundled
+
+# 2. Build release APK
+JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build apk --release
+```
+
+---
+
 ### 1. Build Universal APK (All Architectures in One File)
-Builds a single APK containing native binaries and ONNX models for all ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`):
+Builds a single APK for all ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`):
 ```bash
 JAVA_HOME=/usr/lib/jvm/java-17-temurin-jdk fvm flutter build apk --release
 ```

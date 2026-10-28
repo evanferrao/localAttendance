@@ -3,7 +3,9 @@ import 'package:face_att/database/app_database.dart';
 import 'package:face_att/database/repositories/class_repository.dart';
 import 'package:face_att/pages/classes/create_class_screen.dart';
 import 'package:face_att/pages/home_screen.dart';
+import 'package:face_att/pages/settings/model_setup_screen.dart';
 import 'package:face_att/services/camera_service.dart';
+import 'package:face_att/services/face_recognition/model_manager_service.dart';
 import 'package:face_att/services/theme_service.dart';
 import 'package:face_att/utils/local_db.dart';
 import 'package:flutter/material.dart';
@@ -20,15 +22,17 @@ void main() async {
 
   ThemeService().init();
 
+  final hasModel = await ModelManagerService.instance.hasAnyModelAvailable();
   final classes = await ClassRepository().getAllClasses();
   final hasClasses = classes.isNotEmpty;
 
-  runApp(MyApp(hasClasses: hasClasses));
+  runApp(MyApp(hasClasses: hasClasses, hasModel: hasModel));
 }
 
 class MyApp extends StatelessWidget {
   final bool hasClasses;
-  const MyApp({super.key, this.hasClasses = false});
+  final bool hasModel;
+  const MyApp({super.key, this.hasClasses = false, this.hasModel = true});
 
   @override
   Widget build(BuildContext context) {
@@ -48,9 +52,14 @@ class MyApp extends StatelessWidget {
               theme: lightTheme,
               darkTheme: darkTheme,
               themeMode: themeService.flutterThemeMode,
-              home: hasClasses
-                  ? const HomeScreen()
-                  : const CreateClassScreen(isFirstRun: true),
+              home: !hasModel
+                  ? ModelSetupScreen(
+                      isFirstRun: true,
+                      hasClasses: hasClasses,
+                    )
+                  : (hasClasses
+                      ? const HomeScreen()
+                      : const CreateClassScreen(isFirstRun: true)),
             );
           },
         );

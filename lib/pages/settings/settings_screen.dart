@@ -1,3 +1,4 @@
+import 'package:face_att/pages/settings/model_setup_screen.dart';
 import 'package:face_att/services/face_recognition/ml_service.dart';
 import 'package:face_att/services/theme_service.dart';
 import 'package:face_att/utils/app_colors.dart';
@@ -254,6 +255,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       leading: Icon(Icons.memory, color: colorScheme.primary),
                       title: const Text("Face Recognition Engine"),
                       subtitle: Text(_mlService.activeModelName),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Manage",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, size: 14, color: colorScheme.primary),
+                        ],
+                      ),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ModelSetupScreen(isFirstRun: false),
+                          ),
+                        );
+                        setState(() {});
+                      },
                     ),
                     const Divider(height: 1),
                     ListTile(

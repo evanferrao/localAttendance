@@ -96,7 +96,10 @@ void main() {
     test('Processes sample face image into 512-dim embedding via ONNX Runtime', () async {
       OrtEnv.instance.init();
 
-      final modelBytes = await File('assets/w600k_r50.onnx').readAsBytes();
+      final modelFile = File('assets/models/w600k_r50.onnx').existsSync()
+          ? File('assets/models/w600k_r50.onnx')
+          : File('assets/w600k_r50.onnx');
+      final modelBytes = await modelFile.readAsBytes();
       final sessionOptions = OrtSessionOptions();
       final session = OrtSession.fromBuffer(modelBytes, sessionOptions);
 
@@ -165,7 +168,10 @@ void main() {
     test('Extracts embedding from 23BRS1150_PIYUSH_R_SAINI.jpeg with 5-point landmark alignment achieving 99%+ accuracy', () async {
       OrtEnv.instance.init();
 
-      final modelBytes = await File('assets/w600k_r50.onnx').readAsBytes();
+      final modelFile = File('assets/models/w600k_r50.onnx').existsSync()
+          ? File('assets/models/w600k_r50.onnx')
+          : File('assets/w600k_r50.onnx');
+      final modelBytes = await modelFile.readAsBytes();
       final sessionOptions = OrtSessionOptions();
       final session = OrtSession.fromBuffer(modelBytes, sessionOptions);
 
