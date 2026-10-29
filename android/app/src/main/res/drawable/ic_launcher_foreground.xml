@@ -3,48 +3,56 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Mortarboard Diamond (Cap Top) -->
-    <path
-        android:fillColor="#38BDF8"
-        android:strokeColor="#7DD3FC"
-        android:strokeWidth="2.2"
-        android:strokeLineJoin="round"
-        android:pathData="M54.0,16.0 L90.0,31.8 L54.0,47.5 L18.0,31.8 Z" />
+    <group
+        android:pivotX="54.0"
+        android:pivotY="52.0"
+        android:scaleX="0.56"
+        android:scaleY="0.56"
+        android:translateX="0.0"
+        android:translateY="1.1">
+        <!-- Mortarboard Diamond (Cap Top) -->
+        <path
+            android:fillColor="#38BDF8"
+            android:strokeColor="#7DD3FC"
+            android:strokeWidth="3.2"
+            android:strokeLineJoin="round"
+            android:pathData="M54.0,16.0 L90.0,31.8 L54.0,47.5 L18.0,31.8 Z" />
 
-    <!-- Cap Skull Base & Hanging Tassel -->
-    <path
-        android:fillColor="#38BDF8"
-        android:fillAlpha="0.30"
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="3.9"
-        android:strokeLineJoin="round"
-        android:pathData="M33.8,37.9 V49.8 C33.8,55.4 42.8,59.9 54.0,59.9 C65.2,59.9 74.2,55.4 74.2,49.8 V37.9" />
+        <!-- Cap Skull Base & Hanging Tassel -->
+        <path
+            android:fillColor="#38BDF8"
+            android:fillAlpha="0.30"
+            android:strokeColor="#38BDF8"
+            android:strokeWidth="4.5"
+            android:strokeLineJoin="round"
+            android:pathData="M33.8,37.9 V49.8 C33.8,55.4 42.8,59.9 54.0,59.9 C65.2,59.9 74.2,55.4 74.2,49.8 V37.9" />
 
-    <path
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round"
-        android:pathData="M90.0,31.8 V52.0" />
+        <path
+            android:strokeColor="#38BDF8"
+            android:strokeWidth="4.0"
+            android:strokeLineCap="round"
+            android:pathData="M90.0,31.8 V52.0" />
 
-    <!-- Tassel Bead -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M90.0,51.4 A2.8,2.8 0 1,0 90.0,57.0 A2.8,2.8 0 1,0 90.0,51.4 Z" />
+        <!-- Tassel Bead -->
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M90.0,51.4 A2.8,2.8 0 1,0 90.0,57.0 A2.8,2.8 0 1,0 90.0,51.4 Z" />
 
-    <!-- Classroom Slate Underneath -->
-    <path
-        android:fillColor="#38BDF8"
-        android:fillAlpha="0.18"
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="4.5"
-        android:strokeLineJoin="round"
-        android:pathData="M27.0,58.8 H81.0 A6.8,6.8 0 0,1 87.8,65.6 V81.2 A6.8,6.8 0 0,1 81.0,88.0 H27.0 A6.8,6.8 0 0,1 20.2,81.2 V65.6 A6.8,6.8 0 0,1 27.0,58.8 Z" />
+        <!-- Classroom Slate Underneath -->
+        <path
+            android:fillColor="#38BDF8"
+            android:fillAlpha="0.18"
+            android:strokeColor="#38BDF8"
+            android:strokeWidth="5.0"
+            android:strokeLineJoin="round"
+            android:pathData="M27.0,58.8 H81.0 A6.8,6.8 0 0,1 87.8,65.6 V81.2 A6.8,6.8 0 0,1 81.0,88.0 H27.0 A6.8,6.8 0 0,1 20.2,81.2 V65.6 A6.8,6.8 0 0,1 27.0,58.8 Z" />
 
-    <!-- Attendance Verified Checkmark Inside Slate -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5.1"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M40.5,73.4 L49.5,81.2 L67.5,65.5" />
+        <!-- Attendance Verified Checkmark Inside Slate -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6.0"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M40.5,73.4 L49.5,81.2 L67.5,65.5" />
+    </group>
 </vector>
