@@ -53,15 +53,46 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
-      # ── Build release APK ─────────────────────────────────────────────────
-      - name: Build release APK
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+      # ── Prepare Artifacts Staging ─────────────────────────────────────────
+      - name: Prepare Artifacts Directory
+        run: mkdir -p build-artifacts/lite build-artifacts/full
 
-      # ── Upload artifacts ──────────────────────────────────────────────────
-      - name: Upload release APKs
+      # ── Build Lite Release APKs (Models Excluded, ~25MB) ──────────────────
+      - name: Build Lite Release APKs
+        run: |
+          dart run tool/configure_build.dart --slim
+          flutter pub get
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-*-release.apk build-artifacts/lite/
+
+      # ── Clean Intermediate Build Cache (Prevents runner disk exhaustion) ──
+      - name: Clean intermediate build
+        run: |
+          flutter clean
+          flutter pub get
+
+      # ── Build Full Release APKs (Models Pre-Packaged, ~200MB+) ────────────
+      - name: Build Full Release APKs
+        run: |
+          dart run tool/download_models.dart
+          dart run tool/configure_build.dart --bundled
+          flutter pub get
+          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-*-release.apk build-artifacts/full/
+
+      # ── Upload Artifacts ──────────────────────────────────────────────────
+      - name: Upload Lite Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks
-          path: build/app/outputs/flutter-apk/app-*-release.apk
+          name: lite-release-apks
+          path: build-artifacts/lite/app-*-release.apk
           retention-days: 30
+
+      - name: Upload Full Release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-release-apks
+          path: build-artifacts/full/app-*-release.apk
+          retention-days: 30
+
 

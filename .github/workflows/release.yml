@@ -70,17 +70,32 @@ jobs:
       - name: Prepare Artifacts Directory
         run: mkdir -p release-artifacts
 
-      # ── Build Signed Android App Bundle (for Google Play Console) ───────
-      - name: Build Signed App Bundle (AAB)
+      # ── Build Signed Lite Release (AAB & Universal APK) ─────────────────
+      - name: Build Signed Lite Release (Models Excluded, ~25MB)
         run: |
+          dart run tool/configure_build.dart --slim
+          flutter pub get
           flutter build appbundle --release --android-skip-build-dependency-validation
-          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-release.aab
-
-      # ── Build Signed Universal APK (for GitHub Releases direct download) ─
-      - name: Build Signed Release APK
-        run: |
+          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-lite-release.aab
           flutter build apk --release --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-lite-release.apk
+
+      # ── Clean Intermediate Build Cache (Prevents runner disk exhaustion) ──
+      - name: Clean intermediate build
+        run: |
+          flutter clean
+          flutter pub get
+
+      # ── Build Signed Full Release (AAB & Universal APK) ─────────────────
+      - name: Build Signed Full Release (Models Pre-Packaged, ~200MB+)
+        run: |
+          dart run tool/download_models.dart
+          dart run tool/configure_build.dart --bundled
+          flutter pub get
+          flutter build appbundle --release --android-skip-build-dependency-validation
+          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-full-release.aab
+          flutter build apk --release --android-skip-build-dependency-validation
+          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-full-release.apk
 
       # ── Publish GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release
@@ -88,8 +103,10 @@ jobs:
         with:
           name: Release ${{ github.ref_name }}
           files: |
-            release-artifacts/LocalAttendance-release.aab
-            release-artifacts/LocalAttendance-release.apk
+            release-artifacts/LocalAttendance-lite-release.aab
+            release-artifacts/LocalAttendance-lite-release.apk
+            release-artifacts/LocalAttendance-full-release.aab
+            release-artifacts/LocalAttendance-full-release.apk
           generate_release_notes: true
           draft: false
           prerelease: false
