@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Local Attendance</title>
+  <meta name="description" content="Privacy Policy for Local Attendance: an offline-first, on-device facial recognition attendance management application.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0B132B;
+      --surface: #111C44;
+      --surface-card: #172554;
+      --border: #1E3A8A;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --primary: #38BDF8;
+      --primary-glow: rgba(56, 189, 248, 0.15);
+      --success: #10B981;
+      --header-bg: rgba(11, 19, 43, 0.85);
+    }
+
+    [data-theme="light"] {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-card: #F1F5F9;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --primary: #0284C7;
+      --primary-glow: rgba(2, 132, 199, 0.1);
+      --success: #059669;
+      --header-bg: rgba(248, 250, 252, 0.85);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding-bottom: 80px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+    }
+
+    .header-container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #0C4A6E;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(12, 74, 110, 0.4);
+    }
+
+    .brand-icon svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .theme-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .theme-btn:hover {
+      border-color: var(--primary);
+    }
+
+    main {
+      max-width: 960px;
+      margin: 2.5rem auto 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .hero {
+      margin-bottom: 2.5rem;
+    }
+
+    .badge-updated {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: var(--primary-glow);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .hero-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #38BDF8 0%, #818CF8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 780px;
+    }
+
+    /* Key Privacy Highlights Grid */
+    .highlights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .highlight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .highlight-icon {
+      font-size: 1.6rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .highlight-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .highlight-desc {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* Legal Document Content */
+    .policy-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .policy-section {
+      margin-bottom: 2.5rem;
+    }
+
+    .policy-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .policy-section h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .policy-section h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 1.25rem 0 0.5rem 0;
+      color: var(--text);
+    }
+
+    .policy-section p {
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-size: 0.975rem;
+    }
+
+    .policy-section ul {
+      margin: 0.5rem 0 1rem 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.975rem;
+    }
+
+    .policy-section li {
+      margin-bottom: 0.4rem;
+    }
+
+    .callout {
+      background: var(--surface-card);
+      border-left: 4px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      font-size: 0.925rem;
+    }
+
+    .callout-success {
+      border-left-color: var(--success);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .callout strong {
+      color: var(--text);
+    }
+
+    footer {
+      max-width: 960px;
+      margin: 3rem auto 0 auto;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">
+          <!-- The Cap & Lecture Slate Icon -->
+          <svg viewBox="0 0 108 108" fill="none">
+            <polygon points="54.0,16.0 90.0,31.8 54.0,47.5 18.0,31.8" fill="#38BDF8" stroke="#7DD3FC" stroke-width="2.2" stroke-linejoin="round"/>
+            <path d="M33.8 37.9V49.8C33.8 55.4 42.8 59.9 54.0 59.9C65.2 59.9 74.2 55.4 74.2 49.8V37.9" fill="#38BDF8" fill-opacity="0.30" stroke="#38BDF8" stroke-width="3.9" stroke-linejoin="round"/>
+            <path d="M90.0 31.8V52.0" stroke="#38BDF8" stroke-width="3.4" stroke-linecap="round"/>
+            <circle cx="90.0" cy="54.2" r="2.8" fill="#38BDF8"/>
+            <rect x="20.2" y="58.8" width="67.6" height="29.2" rx="6.8" fill="#38BDF8" fill-opacity="0.18" stroke="#38BDF8" stroke-width="4.5" stroke-linejoin="round"/>
+            <path d="M40.5 73.4L49.5 81.2L67.5 65.5" stroke="#FFFFFF" stroke-width="5.1" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-title">Local Attendance</div>
+      </a>
+      <button class="theme-btn" id="themeBtn">
+        <span id="themeIcon">☀️</span> Light Mode
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="badge-updated">Last Updated: October 29, 2026</div>
+      <h1 class="hero-title">Privacy Policy</h1>
+      <p class="hero-subtitle">
+        Local Attendance is built on a strict <strong>offline-first, zero-cloud architecture</strong>. Your biometric facial vectors, attendance logs, and student records never leave your physical device.
+      </p>
+    </section>
+
+    <!-- Key Highlights -->
+    <div class="highlights-grid">
+      <div class="highlight-card">
+        <div class="highlight-icon">🛡️</div>
+        <div class="highlight-title">100% On-Device</div>
+        <div class="highlight-desc">All facial recognition inference runs locally using embedded ONNX neural models and Google ML Kit. No cloud servers are involved.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="highlight-icon">📷</div>
+        <div class="highlight-title">Ephemeral Camera</div>
+        <div class="highlight-desc">Camera frames are processed in temporary volatile memory to extract math embeddings and are immediately discarded.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="highlight-icon">🚫</div>
+        <div class="highlight-title">No Trackers or Ads</div>
+        <div class="highlight-desc">We do not integrate advertising networks, tracking cookies, or third-party behavioral analytics SDKs.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="highlight-icon">📁</div>
+        <div class="highlight-title">User-Owned Data</div>
+        <div class="highlight-desc">All student rosters, session records, and logs reside solely in your local SQLite database. You retain 100% control over exports.</div>
+      </div>
+    </div>
+
+    <!-- Formal Legal Policy Content -->
+    <div class="policy-content">
+
+      <section class="policy-section">
+        <h2>1. Introduction</h2>
+        <p>
+          This Privacy Policy explains how <strong>Local Attendance</strong> ("we", "our", or "the Application"), developed by <strong>Evan Ferrao</strong>, handles your information.
+        </p>
+        <p>
+          We believe privacy is a fundamental human right. Unlike conventional cloud-based attendance solutions that upload sensitive biometric data to external servers, Local Attendance is explicitly designed as a <strong>local-first, fully offline application</strong>.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>2. Information Processed & Stored Locally</h2>
+        <p>All data created or managed within the Application is stored solely on your device's internal storage:</p>
+        <ul>
+          <li><strong>Facial Biometric Embeddings:</strong> When registering a student or taking attendance, the Application processes facial images through local machine learning models to extract a non-reversible numerical vector (embedding). <em>Raw facial images are not transmitted anywhere.</em></li>
+          <li><strong>Student & Teacher Records:</strong> Name, Student ID / Roll Number, Department, Section, and optionally a local reference photo.</li>
+          <li><strong>Attendance Sessions:</strong> Timestamps, class name, date, present/absent status, and verification confidence scores.</li>
+        </ul>
+        <div class="callout callout-success">
+          <strong>Key Guarantee:</strong> No personal or biometric data is ever uploaded to, synchronized with, or backed up to any cloud server operated by us or third parties.
+        </div>
+      </section>
+
+      <section class="policy-section">
+        <h2>3. Device Permissions & How They Are Used</h2>
+        <p>The Application requests the following Android permissions strictly to fulfill its core educational functionality:</p>
+        <ul>
+          <li>
+            <strong>Camera (<code>android.permission.CAMERA</code>):</strong>
+            Used exclusively during live attendance scanning sessions and when capturing reference photos for student registration. The camera stream is analyzed in real-time within device RAM and is never recorded, streamed, or broadcast.
+          </li>
+          <li>
+            <strong>Storage / File Access (<code>READ_EXTERNAL_STORAGE</code> / <code>WRITE_EXTERNAL_STORAGE</code> / Media Picker):</strong>
+            Used exclusively when you deliberately choose to:
+            (a) Import a batch ZIP archive of student photos from your device, or
+            (b) Export generated attendance reports (in CSV, Excel, or PDF formats) to your local storage or share them via the standard Android share sheet.
+          </li>
+        </ul>
+      </section>
+
+      <section class="policy-section">
+        <h2>4. On-Device Machine Learning Architecture</h2>
+        <p>
+          Face detection and face recognition are powered by on-device inference engines:
+        </p>
+        <ul>
+          <li><strong>Google ML Kit Vision:</strong> Operates entirely on-device to locate facial bounding boxes and landmarks.</li>
+          <li><strong>ONNX Runtime:</strong> Executes quantized lightweight neural network models (such as MobileFaceNet) locally on your device's CPU/GPU to generate mathematical embeddings.</li>
+        </ul>
+        <p>
+          At no point are model weights, camera frames, or feature vectors exchanged with external endpoints.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>5. Data Retention & Deletion</h2>
+        <p>
+          Because all data is stored exclusively on your device within the Application's private SQLite sandbox:
+        </p>
+        <ul>
+          <li><strong>You have full control:</strong> You may edit or delete individual student profiles, attendance sessions, or teacher accounts at any time from within the app settings.</li>
+          <li><strong>Complete Deletion:</strong> Clearing the Application's data in Android Settings (<em>Settings &gt; Apps &gt; Local Attendance &gt; Storage &gt; Clear Data</em>) or uninstalling the app permanently and irreversibly deletes all databases, vector caches, and session history from your device.</li>
+        </ul>
+      </section>
+
+      <section class="policy-section">
+        <h2>6. Third-Party Sharing & Analytics</h2>
+        <p>
+          Local Attendance does <strong>not</strong> contain:
+        </p>
+        <ul>
+          <li>Advertising networks or ad identifiers (GAID).</li>
+          <li>Third-party analytics or crash reporting SDKs that track user behavior.</li>
+          <li>Data brokers or tracking beacons.</li>
+        </ul>
+        <p>
+          We do not sell, rent, monetize, or trade any user information.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>7. Children's Privacy (COPPA & Educational Compliance)</h2>
+        <p>
+          Local Attendance is designed for use by schools, universities, instructors, and educational institutions. Because the Application does not collect, transmit, or store any personal data on remote servers, it complies with the Children's Online Privacy Protection Act (COPPA), the General Data Protection Regulation (GDPR), and the Family Educational Rights and Privacy Act (FERPA).
+        </p>
+        <p>
+          Institutions and instructors maintain sole custody and ownership of their students' records on their respective devices.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>8. Security of Your Data</h2>
+        <p>
+          Your data is protected by the Android sandbox environment and device-level hardware encryption. We recommend enabling a device lock screen (PIN, password, or biometrics) to prevent unauthorized physical access to the device hosting the attendance database.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>9. Changes to This Privacy Policy</h2>
+        <p>
+          We may update this Privacy Policy periodically to reflect app updates or regulatory requirements. Any modifications will be posted to this website (<a href="https://localattendance.evanferrao.com">localattendance.evanferrao.com</a>) with an updated revision date.
+        </p>
+      </section>
+
+      <section class="policy-section">
+        <h2>10. Contact Us</h2>
+        <p>
+          If you have any questions, feedback, or concerns regarding this Privacy Policy or your data, please contact the developer:
+        </p>
+        <div class="callout">
+          <strong>Developer:</strong> Evan Ferrao<br>
+          <strong>Email:</strong> <a href="mailto:evanferrao@gmail.com" style="color: var(--primary); font-weight: 600;">evanferrao@gmail.com</a><br>
+          <strong>Website:</strong> <a href="https://evanferrao.com" target="_blank" rel="noopener noreferrer" style="color: var(--primary); font-weight: 600;">evanferrao.com</a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <div>&copy; 2026 Evan Ferrao. All rights reserved.</div>
+    <div>
+      <a href="https://localattendance.evanferrao.com">Privacy Policy</a> &bull;
+      <a href="https://evanferrao.com" target="_blank" rel="noopener noreferrer">evanferrao.com</a>
+    </div>
+  </footer>
+
+  <script>
+    const themeBtn = document.getElementById('themeBtn');
+    const themeIcon = document.getElementById('themeIcon');
+
+    // Check system preference or saved theme
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.body.setAttribute('data-theme', savedTheme);
+    updateBtn(savedTheme);
+
+    themeBtn.addEventListener('click', () => {
+      const current = document.body.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateBtn(next);
+    });
+
+    function updateBtn(theme) {
+      if (theme === 'light') {
+        themeIcon.textContent = '🌙';
+        themeBtn.innerHTML = '<span>🌙</span> Dark Mode';
+      } else {
+        themeIcon.textContent = '☀️';
+        themeBtn.innerHTML = '<span>☀️</span> Light Mode';
+      }
+    }
+  </script>
+</body>
+</html>
