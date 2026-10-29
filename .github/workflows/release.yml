@@ -10,9 +10,13 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build Signed Release (AAB & APK)
+  build:
+    name: Build Signed Release (${{ matrix.flavor }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [lite, full]
 
     steps:
       # ── Free Disk Space (Prevents "No space left on device" runner crash) ──
@@ -70,32 +74,52 @@ jobs:
       - name: Prepare Artifacts Directory
         run: mkdir -p release-artifacts
 
-      # ── Build Signed Lite Release (AAB & Universal APK) ─────────────────
-      - name: Build Signed Lite Release (Models Excluded, ~25MB)
+      # ── Configure Build Flavor ──────────────────────────────────────────
+      - name: Configure Slim (Lite Only)
+        if: matrix.flavor == 'lite'
         run: |
           dart run tool/configure_build.dart --slim
           flutter pub get
-          flutter build appbundle --release --android-skip-build-dependency-validation
-          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-lite-release.aab
-          flutter build apk --release --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-lite-release.apk
 
-      # ── Clean Intermediate Build Cache (Prevents runner disk exhaustion) ──
-      - name: Clean intermediate build
-        run: |
-          flutter clean
-          flutter pub get
-
-      # ── Build Signed Full Release (AAB & Universal APK) ─────────────────
-      - name: Build Signed Full Release (Models Pre-Packaged, ~200MB+)
+      - name: Configure Bundled Models (Full Only)
+        if: matrix.flavor == 'full'
         run: |
           dart run tool/download_models.dart
           dart run tool/configure_build.dart --bundled
           flutter pub get
+
+      # ── Build Signed Release (AAB & Universal APK) ──────────────────────
+      - name: Build Signed ${{ matrix.flavor }} Release (AAB & APK)
+        run: |
           flutter build appbundle --release --android-skip-build-dependency-validation
-          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-full-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-${{ matrix.flavor }}-release.aab
           flutter build apk --release --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-full-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-${{ matrix.flavor }}-release.apk
+
+      # ── Upload Staged Artifacts ─────────────────────────────────────────
+      - name: Upload ${{ matrix.flavor }} Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.flavor }}-release-artifacts
+          path: release-artifacts/*
+          retention-days: 1
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-release-artifacts'
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Verify downloaded artifacts
+        run: |
+          echo "=== Downloaded release artifacts ==="
+          ls -la release-artifacts
 
       # ── Publish GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release

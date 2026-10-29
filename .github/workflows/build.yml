@@ -9,8 +9,12 @@ on:
 
 jobs:
   build:
-    name: Build Release APK
+    name: Build Release APKs (${{ matrix.flavor }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [lite, full]
 
     steps:
       # ── Free Disk Space (Prevents "No space left on device" runner crash) ──
@@ -55,44 +59,32 @@ jobs:
 
       # ── Prepare Artifacts Staging ─────────────────────────────────────────
       - name: Prepare Artifacts Directory
-        run: mkdir -p build-artifacts/lite build-artifacts/full
+        run: mkdir -p build-artifacts
 
-      # ── Build Lite Release APKs (Models Excluded, ~25MB) ──────────────────
-      - name: Build Lite Release APKs
+      # ── Configure Build Flavor ──────────────────────────────────────────
+      - name: Configure Slim (Lite Only)
+        if: matrix.flavor == 'lite'
         run: |
           dart run tool/configure_build.dart --slim
           flutter pub get
-          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-*-release.apk build-artifacts/lite/
 
-      # ── Clean Intermediate Build Cache (Prevents runner disk exhaustion) ──
-      - name: Clean intermediate build
-        run: |
-          flutter clean
-          flutter pub get
-
-      # ── Build Full Release APKs (Models Pre-Packaged, ~200MB+) ────────────
-      - name: Build Full Release APKs
+      - name: Configure Bundled Models (Full Only)
+        if: matrix.flavor == 'full'
         run: |
           dart run tool/download_models.dart
           dart run tool/configure_build.dart --bundled
           flutter pub get
+
+      # ── Build Release APKs ───────────────────────────────────────────────
+      - name: Build ${{ matrix.flavor }} Release APKs
+        run: |
           flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
-          cp build/app/outputs/flutter-apk/app-*-release.apk build-artifacts/full/
+          cp build/app/outputs/flutter-apk/app-*-release.apk build-artifacts/
 
       # ── Upload Artifacts ──────────────────────────────────────────────────
-      - name: Upload Lite Release APKs
+      - name: Upload ${{ matrix.flavor }} Release APKs
         uses: actions/upload-artifact@v4
         with:
-          name: lite-release-apks
-          path: build-artifacts/lite/app-*-release.apk
+          name: ${{ matrix.flavor }}-release-apks
+          path: build-artifacts/app-*-release.apk
           retention-days: 30
-
-      - name: Upload Full Release APKs
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-release-apks
-          path: build-artifacts/full/app-*-release.apk
-          retention-days: 30
-
-
