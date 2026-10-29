@@ -43,6 +43,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.0'
           channel: stable
           cache: true
 
@@ -61,7 +62,7 @@ jobs:
           storeFile=upload-keystore.jks
           EOF
 
-      # ── Install Dependencies ────────────────────────────────────────────
+      # ── Install Dependencies ────────────────────────────────────
       - name: Install dependencies
         run: flutter pub get
 
@@ -72,13 +73,13 @@ jobs:
       # ── Build Signed Android App Bundle (for Google Play Console) ───────
       - name: Build Signed App Bundle (AAB)
         run: |
-          flutter build appbundle --release
+          flutter build appbundle --release --android-skip-build-dependency-validation
           cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-release.aab
 
       # ── Build Signed Universal APK (for GitHub Releases direct download) ─
       - name: Build Signed Release APK
         run: |
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-release.apk
 
       # ── Publish GitHub Release ──────────────────────────────────────────

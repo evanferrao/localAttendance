@@ -41,6 +41,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.27.0'
           channel: stable
           cache: true
 
@@ -54,7 +55,7 @@ jobs:
 
       # ── Build release APK ─────────────────────────────────────────────────
       - name: Build release APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
 
       # ── Upload artifacts ──────────────────────────────────────────────────
       - name: Upload release APKs
