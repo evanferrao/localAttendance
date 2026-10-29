@@ -62,11 +62,13 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('=== Model Check Complete ===');
+  exit(0);
 }
 
 Future<void> _downloadFile(String urlString, File destination) async {
   final client = HttpClient();
   client.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
+  client.connectionTimeout = const Duration(seconds: 15);
 
   try {
     var uri = Uri.parse(urlString);
@@ -85,6 +87,7 @@ Future<void> _downloadFile(String urlString, File destination) async {
       if (response.isRedirect && redirectCount < maxRedirects) {
         redirectCount++;
         final location = response.headers.value(HttpHeaders.locationHeader);
+        await response.drain(); // Drain redirect response so socket is freed
         if (location == null) {
           throw Exception('Redirect received without Location header');
         }
@@ -95,6 +98,7 @@ Future<void> _downloadFile(String urlString, File destination) async {
     }
 
     if (response.statusCode != HttpStatus.ok) {
+      await response.drain();
       throw Exception('Failed to download file: HTTP ${response.statusCode}');
     }
 
@@ -121,6 +125,6 @@ Future<void> _downloadFile(String urlString, File destination) async {
     await outputSink.flush();
     await outputSink.close();
   } finally {
-    client.close();
+    client.close(force: true);
   }
 }
