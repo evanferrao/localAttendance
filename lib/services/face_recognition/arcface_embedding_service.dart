@@ -7,7 +7,7 @@ import 'package:face_att/services/face_recognition/image_converter.dart';
 import 'package:face_att/services/face_recognition/model_manager_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:onnxruntime/onnxruntime.dart';
 

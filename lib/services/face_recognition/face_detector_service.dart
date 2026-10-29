@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:face_att/models/point2d.dart';
 import 'package:face_att/models/recognition_result.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
 /// Service responsible for Google ML Kit face and landmark detection with rotation-aware fallbacks.

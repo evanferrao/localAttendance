@@ -15,6 +15,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── Free Disk Space (Prevents "No space left on device" runner crash) ──
+      - name: Free Disk Space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /var/lib/docker
+          echo "=== Disk space after cleanup ==="
+          df -h
+
       # ── Checkout ────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -52,13 +65,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # ── Create output staging folder ────────────────────────────────────
+      - name: Prepare Artifacts Directory
+        run: mkdir -p release-artifacts
+
       # ── Build Signed Android App Bundle (for Google Play Console) ───────
       - name: Build Signed App Bundle (AAB)
-        run: flutter build appbundle --release
+        run: |
+          flutter build appbundle --release
+          cp build/app/outputs/bundle/release/app-release.aab release-artifacts/LocalAttendance-release.aab
 
       # ── Build Signed Universal APK (for GitHub Releases direct download) ─
       - name: Build Signed Release APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk release-artifacts/LocalAttendance-release.apk
 
       # ── Publish GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release
@@ -66,8 +87,8 @@ jobs:
         with:
           name: Release ${{ github.ref_name }}
           files: |
-            build/app/outputs/bundle/release/app-release.aab
-            build/app/outputs/flutter-apk/app-release.apk
+            release-artifacts/LocalAttendance-release.aab
+            release-artifacts/LocalAttendance-release.apk
           generate_release_notes: true
           draft: false
           prerelease: false
